@@ -436,36 +436,58 @@ class DrawingController {
     constructor(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY) {
         this.storageController = storageController;
 
-        // 描画の有効/無効を制御するフラグ
-        this.isDrawingActive = false;
-        // imageCanvasの画像の有無を制御するフラグ
-        this.isImageDrawn = false;
-
-        // ペンの初期値を設定
-        this.color = '#000000';
-        this.alpha = 1;
-        this.lineWidth = 3;
-
-        this.mode = 'pen';
+        //描画状態の初期化
+        this.initializeDrawingState();
+        //Canvas設定の初期化
+        this.initializeCanvasSettings(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY);
+        //Canvas要素の初期化
+        this.initializeCanvasElements();
+        //イベントリスナーの設定
+        this.initializeEventListeners();
 
         this.registerEventListeners();
 
-        /*
-        ==============================
-        Canvasの「描画バッファーのサイズ」と「表示サイズ」を設定
-        ==============================
-        */
+    }
+
+    initializeDrawingState() {
+        /*描画フラグの初期化*/
+        // 描画の有効/無効
+        this.isDrawingActive = false;
+        // imageCanvasの画像の有無
+        this.isImageDrawn = false;
+
+        // ペン設定の初期化
+        this.color = '#000000';
+        this.alpha = 1;
+        this.lineWidth = 3;
+        this.mode = 'pen';
+
+        // ピクセルデータの履歴を保持する配列
+        this.imagePixelDataHistory = [];
+        this.drawPixelDataHistory = [];
+
+        this.x = null;
+        this.y = null;
+    }
+
+    /*
+    ==============================
+    Canvasの「描画バッファーのサイズ」と「表示サイズ」を設定
+    ==============================
+    */
+    initializeCanvasSettings(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY) {
+
         //toioマット座標調整　オフセット
         /* toioマットの座標を0にずらす */
         this.positionRegX = positionRegX;
         this.positionRegY = positionRegY;
 
-        // toioマットのサイズ計算
+        // toioマットサイズ計算
         this.toioMatWidth = toioMatBottomRightX - toioMatTopLeftX;
         this.toioMatHeight = toioMatBottomRightY - toioMatTopLeftY;
 
         // デバイスピクセル比を取得
-        const dpr = window.devicePixelRatio || 1;
+        // const dpr = window.devicePixelRatio || 1;
 
         // ブラウザに表示するCanvasのサイズ
         // / 任意のサイズ
@@ -473,11 +495,9 @@ class DrawingController {
         // toioマットの縦横比を維持
         this.displayHeight = this.displayWidth * (this.toioMatHeight / this.toioMatWidth);
 
-        // Canvasサイズの初期設定を保持
+        // Canvasサイズの初期設定
         this.defaultCanvasWidth = this.displayWidth;
         this.defaultCanvasHeight = this.displayHeight;
-
-        // Canvasのサイズを設定
         this.canvasWidth = this.defaultCanvasWidth;
         this.canvasHeight = this.defaultCanvasHeight;
 
@@ -488,36 +508,23 @@ class DrawingController {
         // this.displayWidth = this.defaultDisplayWidth;  
         // this.displayHeight = this.defaultDisplayHeight;
 
-
         // スケール計算
         this.scaleX = this.canvasWidth / this.toioMatWidth;
         this.scaleY = this.canvasHeight / this.toioMatHeight;
-
-        // ピクセルデータの履歴を保持する配列
-        this.imagePixelDataHistory = [];
-        this.drawPixelDataHistory = [];
-
-        this.x = null;
-        this.y = null;
-
-        this.init();
     }
 
-    /*
-    ==============================
-    初期化
-    ==============================
-    */
-    init = () => {
+    initializeCanvasElements() {
+        // Canvas要素の取得
         this.imageCanvas = document.getElementById('imageCanvas');
         this.drawCanvas = document.getElementById('drawCanvas');
-
+        // コンテキストの取得
         this.imageCtx = this.imageCanvas.getContext('2d');
         this.drawCtx = this.drawCanvas.getContext('2d');
-
-        // Canvas初期化
+        // Canvasサイズの設定
         this.setCanvas();
+    }
 
+    initializeEventListeners() {
         // ペンの初期化
         document.getElementById('size').textContent = this.lineWidth;
         document.getElementById('size-slider').value = this.lineWidth;
@@ -542,7 +549,6 @@ class DrawingController {
                 this.drawFinish();
             }
         });
-
     }
 
     /*
@@ -1275,7 +1281,7 @@ class CanvasToToio {
         const chunks = this.splitTargets(targets);
 
         // 分割したチャンクをループ(toioに繰り返し送信)
-        for (let i = 0; i < chunks.length; i=i+20) {
+        for (let i = 0; i < chunks.length; i = i + 20) {
             const isLast = i === chunks.length - 1;
             const encodedCommand = this.encodeTargetPoints(chunks[i], isLast);
             console.log(encodedCommand);
@@ -1320,7 +1326,7 @@ class CanvasToToio {
                 break;
         }
     }
-    
+
 }
 
 /*
