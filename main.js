@@ -445,8 +445,6 @@ class DrawingController {
         //イベントリスナーの設定
         this.initializeEventListeners();
 
-        this.registerEventListeners();
-
     }
 
     initializeDrawingState() {
@@ -525,6 +523,13 @@ class DrawingController {
     }
 
     initializeEventListeners() {
+        // UI要素のイベントリスナー
+        this.initializeUIEventListeners();
+        // toioの位置更新イベントリスナー
+        this.initializePositionEventListeners();
+    }
+
+    initializeUIEventListeners() {
         // ペンの初期化
         document.getElementById('size').textContent = this.lineWidth;
         document.getElementById('size-slider').value = this.lineWidth;
@@ -541,14 +546,25 @@ class DrawingController {
         document.getElementById('pencilColor').addEventListener('input', (event) => {
             this.setColor(event.target.value);
         });
+    }
 
-        //toioが座標を読み取れなくなったとき実行イベント
+    initializePositionEventListeners() {
+        //toioの位置更新イベント
+        //decodePositionDataContinuousメソッドで発火
+        document.addEventListener('positionUpdated', (event) => {
+            if (this.isDrawingActive) {
+                this.draw(event.detail);
+            }
+        });
+
+        //toioの位置取得失敗イベント
         //PositionContorollerのPositionMissedメソッドで発火
         document.addEventListener('positionMissed', (event) => {
             if (this.isDrawingActive) {
                 this.drawFinish();
             }
         });
+
     }
 
     /*
@@ -643,16 +659,6 @@ class DrawingController {
     drawFinish = () => {
         this.x = null;
         this.y = null;
-    }
-
-    //toioの座標が更新されたらdrawメソッドを実行
-    //decodePositionDataContinuousメソッドで発火
-    registerEventListeners() {
-        document.addEventListener('positionUpdated', (event) => {
-            if (this.isDrawingActive) {
-                this.draw(event.detail);
-            }
-        });
     }
 
     //描画開始フラグ
