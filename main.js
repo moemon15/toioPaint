@@ -33,6 +33,14 @@ class BluetoothController {
 
     constructor() {
         this.devices = new Map();
+        this.initializeEventListeners();
+    }
+
+    initializeEventListeners() {
+        // toio接続
+        document.getElementById('connectButton').addEventListener('click', () => this.connect());
+        // toio切断
+        document.getElementById('disconnectButton').addEventListener('click', () => this.disconnect());
     }
 
     async connect() {
@@ -435,6 +443,7 @@ class DrawingController {
 
     constructor(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY) {
         this.storageController = storageController;
+        this.positionController = positionController;
 
         //描画状態の初期化
         this.initializeDrawingState();
@@ -523,29 +532,83 @@ class DrawingController {
     }
 
     initializeEventListeners() {
+        //描画処理イベントリスナー
+        this.initializeDrawingControlListeners();
         // UI要素のイベントリスナー
         this.initializeUIEventListeners();
         // toioの位置更新イベントリスナー
         this.initializePositionEventListeners();
     }
 
+    initializeDrawingControlListeners() {
+        // 描画処理
+        document.getElementById('startDrawingButton').addEventListener('click', this.handleDrawingStart.bind(this));
+        document.getElementById('stopDrawingButton').addEventListener('click', this.handleDrawingStop.bind(this));
+        document.getElementById('clearButton').addEventListener('click', this.handleCanvasClear.bind(this));
+    }
+
+    handleDrawingStart() {
+        console.log('お絵かき開始ボタンがクリックされました');
+        this.positionController.startReadingPosition();
+        this.isDrawingActive = true;
+    }
+
+    handleDrawingStop() {
+        console.log('お絵かき停止ボタンがクリックされました');
+        this.positionController.stopReadingPosition();
+        this.isDrawingActive = false;
+    }
+
+    handleCanvasClear() {
+        console.log('Canvasクリアボタンがクリックされました');
+        this.clearCanvas();
+    }
+
     initializeUIEventListeners() {
+        const sizeSlider = document.getElementById('size-slider');
+        const alphaSlider = document.getElementById('alpha-slider');
+        const colorPicker = document.getElementById('pencilColor');
+
         // ペンの初期化
         document.getElementById('size').textContent = this.lineWidth;
-        document.getElementById('size-slider').value = this.lineWidth;
+        sizeSlider.value = this.lineWidth;
         document.getElementById('transparent').textContent = this.alpha;
-        document.getElementById('alpha-slider').value = this.alpha;
+        alphaSlider.value = this.alpha;
 
         // スライダーの変更イベント
-        document.getElementById('size-slider').addEventListener('input', (event) => {
+        sizeSlider.addEventListener('input', (event) => {
             this.setLineWidth(event.target.value);
         });
-        document.getElementById('alpha-slider').addEventListener('input', (event) => {
+        alphaSlider.addEventListener('input', (event) => {
             this.setAlpha(event.target.value);
         });
-        document.getElementById('pencilColor').addEventListener('input', (event) => {
+        colorPicker.addEventListener('input', (event) => {
             this.setColor(event.target.value);
         });
+
+        // モード切り替え
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', (event) => {
+                this.mode = event.target.value === '1' ? 'pen' : 'eraser';
+            });
+        });
+
+        /*
+        document.addEventListener('DOMContentLoaded', () => {
+            const modeRadios = document.querySelectorAll('input[name="mode"]');
+            modeRadios.forEach(radio => {
+                radio.addEventListener('change', (event) => {
+                    if (event.target.value === '1') {
+                        drawingController.setMode('pen');
+                        console.log('ペンに切り替わりました');
+                    } else if (event.target.value === '2') {
+                        drawingController.setMode('eraser');
+                        console.log('消しゴムに切り替わりました');
+                    }
+                });
+            });
+        });
+        */
     }
 
     initializePositionEventListeners() {
@@ -1335,7 +1398,7 @@ const bluetoothController = new BluetoothController();
 const storageController = new StorageController();
 const positionController = new PositionController(bluetoothController, storageController);
 // toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY
-const drawingController = new DrawingController(90, 130, 410, 370, 320, 240, -90, -140, storageController);
+const drawingController = new DrawingController(90, 130, 410, 370, 320, 240, -90, -140, storageController, positionController);
 // const canvasToToio = new CanvasToToio(bluetoothController, storageController);
 document.addEventListener('DOMContentLoaded', () => {
     replayController = new ReplayController(drawingController, storageController);
@@ -1351,41 +1414,6 @@ const scoringSystem = new ScoringSystem();
 イベントリスナー
 ==============================
 */
-// toio接続
-document.getElementById('connectButton').addEventListener('click', () => bluetoothController.connect());
-// toio切断
-document.getElementById('disconnectButton').addEventListener('click', () => bluetoothController.disconnect());
-// 描画処理
-document.getElementById('startDrawingButton').addEventListener('click', () => {
-    console.log('お絵かき開始ボタンがクリックされました');
-    positionController.startReadingPosition();
-    drawingController.isDrawingActive = true;
-});
-document.getElementById('stopDrawingButton').addEventListener('click', () => {
-    console.log('お絵かき停止ボタンがクリックされました');
-    positionController.stopReadingPosition();
-    drawingController.isDrawingActive = false;
-});
-document.getElementById('clearButton').addEventListener('click', () => {
-    console.log('Canvasクリアボタンがクリックされました');
-    drawingController.clearCanvas();
-});
-
-// モード切り替え
-document.addEventListener('DOMContentLoaded', () => {
-    const modeRadios = document.querySelectorAll('input[name="mode"]');
-    modeRadios.forEach(radio => {
-        radio.addEventListener('change', (event) => {
-            if (event.target.value === '1') {
-                drawingController.setMode('pen');
-                console.log('ペンに切り替わりました');
-            } else if (event.target.value === '2') {
-                drawingController.setMode('eraser');
-                console.log('消しゴムに切り替わりました');
-            }
-        });
-    });
-});
 
 // 画像ファイルをCanvasに描画
 document.getElementById('uploadfile').addEventListener('change', function (event) {
