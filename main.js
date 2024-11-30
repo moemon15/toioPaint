@@ -439,7 +439,6 @@ class PositionController {
     }
 }
 
-
 /*
 ==============================
 デフォルト設定値の定義
@@ -848,6 +847,125 @@ class DrawingController {
 
         this.x = toX;
         this.y = toY;
+    }
+}
+
+class ImageController {
+    constructor(drawingController) {
+        this.drawingController = drawingController;
+
+        this.uploadInput = document.getElementById('uploadfile');
+        this.canvasArea = document.getElementById('canvas-area');
+        this.imageCanvas = document.getElementById('imageCanvas');
+        this.drawCanvas = document.getElementById('drawCanvas');
+        this.imageCtx = imageCanvas.getContext('2d');
+        this.drawCtx = drawCanvas.getContext('2d');
+
+        this.initializeEventListeners();
+    }
+
+    initializeEventListeners() {
+        this.uploadInput.addEventListener('change', this.handleImageUpload.bind(this));
+        document.getElementById('removeImage').addEventListener('click', this.handleImageRemove.bind(this));
+    }
+
+    handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!this.validateImageFile(file)) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => this.handleFileRead(e);
+        reader.readAsDataURL(file);
+    }
+
+    // ファイル検証
+    validateImageFile(file) {
+        if (!file) return false;
+
+        if (file.type.indexOf("image") < 0) {
+            alert("画像ファイルを指定してください。");
+            return false;
+        }
+        return true;
+    }
+
+    //新しいImage要素を生成
+    handleFileRead(event) {
+        const img = new Image();
+        img.onload = () => this.processImage(img);
+        img.src = event.target.result;
+    }
+
+    //画像処理 親要素
+    processImage(img) {
+        const dimensions = this.calculateDimensions(img);
+        this.updateCanvasDimensions(dimensions);
+        this.drawImage(img);
+        this.drawingController.isImageDrawn = true;
+    }
+
+    //１．サイズ計算
+    calculateDimensions(img) {
+        const toioMatWidth = this.drawingController.toioMatWidth;
+        const toioMatHeight = this.drawingController.toioMatHeight;
+
+        // canvasエリアと画像のスケールを計算
+        const scale = Math.min(
+            this.canvasArea.clientWidth / img.naturalWidth,
+            this.canvasArea.clientHeight / img.naturalHeight
+        );
+
+        // 画像の縮小後のサイズを計算
+        const scaledWidth = img.naturalWidth * scale;
+        const scaledHeight = img.naturalHeight * scale;
+
+        // toioマットの比率を維持するためのスケール
+        const toioMatScale = Math.min(
+            scaledWidth / toioMatWidth,
+            scaledHeight / toioMatHeight
+        );
+
+        return {
+            width: toioMatWidth * toioMatScale,
+            height: toioMatHeight * toioMatScale
+        };
+    }
+
+    //２．キャンバス更新
+    updateCanvasDimensions(dimensions) {
+        // 両方のキャンバスのサイズを更新
+        [this.imageCanvas, this.drawCanvas].forEach(canvas => {
+            canvas.width = dimensions.width;
+            canvas.height = dimensions.height;
+        });
+
+        // 描画キャンバスをクリア
+        this.imageCtx.clearRect(0, 0, dimensions.width, dimensions.height);
+    }
+
+    //３．画像の描画
+    drawImage(img) {
+        this.imageCtx.drawImage(
+            img,
+            0,
+            0,
+            this.imageCanvas.width,
+            this.imageCanvas.height
+        );
+    }
+
+    handleImageRemove() {
+        // ファイル入力をリセット
+        this.uploadInput.value = '';
+
+        // キャンバスをクリア
+        this.imageCtx.clearRect(0, 0, this.imageCanvas.width, this.imageCanvas.height);
+
+        // キャンバスサイズを初期設定に戻す
+        this.drawingController.resetCanvasSize();
+
+        // 画像描画フラグをリセット
+        this.drawingController.isImageDrawn = false;
     }
 }
 
@@ -1462,6 +1580,7 @@ const bluetoothController = new BluetoothController();
 const storageController = new StorageController();
 const positionController = new PositionController(bluetoothController, storageController);
 const drawingController = new DrawingController(DEFAULT_CONFIG, storageController, positionController);
+const imageController = new ImageController(drawingController);
 
 // const canvasToToio = new CanvasToToio(bluetoothController, storageController);
 document.addEventListener('DOMContentLoaded', () => {
@@ -1479,6 +1598,7 @@ const scoringSystem = new ScoringSystem();
 ==============================
 */
 
+/*
 // 画像ファイルをCanvasに描画
 document.getElementById('uploadfile').addEventListener('change', function (event) {
     const file = event.target.files[0];
@@ -1551,6 +1671,7 @@ document.getElementById('removeImage').addEventListener('click', () => {
 
     drawingController.isImageDrawn = false;
 });
+*/
 
 // ローカルストレージデータ取得
 document.addEventListener('DOMContentLoaded', () => {
