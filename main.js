@@ -495,20 +495,22 @@ class DrawingController {
      */
 
     constructor(config = {}, storageController, positionController) {
-        // 設定のマージ（デフォルト値と引数の値を合成）
-        this.config = this.mergeConfig(DEFAULT_CONFIG, config);
+        // 状態管理の初期化
+        this.state = new DrawingState();
 
+        // 依存オブジェクトの設定
         this.storageController = storageController;
         this.positionController = positionController;
 
-        //描画状態の初期化
-        this.initializeDrawingState();
-        //Canvas設定の初期化
-        this.initializeCanvasSettings();
+        // 設定のマージ（デフォルト値と引数の値を合成）
+        this.config = this.mergeConfig(DEFAULT_CONFIG, config);
+
         //Canvas要素の初期化
         this.initializeCanvasElements();
         //イベントリスナーの設定
         this.initializeEventListeners();
+        //Canvas設定の初期化
+        this.initializeCanvasSettings();
 
     }
 
@@ -542,8 +544,9 @@ class DrawingController {
         };
     }
 
+    /*
     initializeDrawingState() {
-        /*描画フラグの初期化*/
+        //描画フラグの初期化
         // 描画の有効/無効
         this.isDrawingActive = false;
         // imageCanvasの画像の有無
@@ -561,6 +564,114 @@ class DrawingController {
 
         this.x = null;
         this.y = null;
+    }
+    */
+
+    initializeCanvasElements() {
+        // Canvas要素の取得
+        this.imageCanvas = document.getElementById('imageCanvas');
+        this.drawCanvas = document.getElementById('drawCanvas');
+        // コンテキストの取得
+        this.imageCtx = this.imageCanvas.getContext('2d');
+        this.drawCtx = this.drawCanvas.getContext('2d');
+    }
+
+    initializeEventListeners() {
+        //描画処理イベントリスナー
+        this.initializeDrawingControlListeners();
+        // UI要素のイベントリスナー
+        this.initializeUIEventListeners();
+        // toioの位置更新イベントリスナー
+        this.initializePositionEventListeners();
+        // 状態変更リスナーの初期化
+        this.initializeStateChangeListener();
+    }
+
+    initializeDrawingControlListeners() {
+        // 描画処理
+        document.getElementById('startDrawingButton').addEventListener('click', this.handleDrawingStart.bind(this));
+        document.getElementById('stopDrawingButton').addEventListener('click', this.handleDrawingStop.bind(this));
+        document.getElementById('clearButton').addEventListener('click', this.handleCanvasClear.bind(this));
+    }
+
+    handleDrawingStart() {
+        // console.log('お絵かき開始ボタンがクリックされました');
+        this.positionController.startReadingPosition();
+        this.state.setDrawingActive(true);
+    }
+
+    handleDrawingStop() {
+        // console.log('お絵かき停止ボタンがクリックされました');
+        this.positionController.stopReadingPosition();
+        this.state.setDrawingActive(false);
+    }
+
+    handleCanvasClear() {
+        // console.log('Canvasクリアボタンがクリックされました');
+        this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
+        this.state.reset();
+    }
+
+    initializeUIEventListeners() {
+        const sizeSlider = document.getElementById('size-slider');
+        const alphaSlider = document.getElementById('alpha-slider');
+        const colorPicker = document.getElementById('pencilColor');
+
+        // ペンの初期化
+        document.getElementById('size').textContent = this.state.penSettings.lineWidth;
+        sizeSlider.value = this.state.penSettings.lineWidth;
+        document.getElementById('alpha').textContent = this.state.penSettings.alpha;
+        alphaSlider.value = this.state.penSettings.alpha;
+
+        // スライダーの変更イベント
+        sizeSlider.addEventListener('input', (event) => {
+            const value = event.target.value;
+            this.state.updatePenSettings({ lineWidth: value });
+            document.getElementById('size').textContent = value;
+        });
+        alphaSlider.addEventListener('input', (event) => {
+            const value = event.target.value;
+            this.state.updatePenSettings({ alpha: value });
+            document.getElementById('alpha').textContent = value;
+        });
+        colorPicker.addEventListener('input', (event) => {
+            const value = event.target.value;
+            this.state.updatePenSettings({ color: value });
+        });
+
+        // モード切り替え
+        document.querySelectorAll('input[name="drawMode"]').forEach(radio => {
+            radio.addEventListener('change', (event) => {
+                const mode = event.target.value === '1' ? 'pen' : 'eraser';
+                this.state.updatePenSettings({ mode: mode });
+            });
+        });
+    }
+
+    initializePositionEventListeners() {
+        //toioの位置更新イベント
+        //decodePositionDataContinuousメソッドで発火
+        document.addEventListener('positionUpdated', (event) => {
+            if (this.state.flags.isDrawingActive) {
+                this.draw(event.detail);
+            }
+        });
+
+        //toioの位置取得失敗イベント
+        //PositionContorollerのPositionMissedメソッドで発火
+        document.addEventListener('positionMissed', (event) => {
+            if (this.state.flags.isDrawingActive) {
+                this.drawFinish();
+            }
+        });
+
+    }
+
+    initializeStateChangeListener() {
+        document.addEventListener('drawingStateChange', (event) => {
+            const { type, data } = event.detail;
+            this.handleStateChange(type, data);
+        });
     }
 
     /*
@@ -598,124 +709,12 @@ class DrawingController {
         // スケール計算
         this.scaleX = this.canvasWidth / this.toioMatWidth;
         this.scaleY = this.canvasHeight / this.toioMatHeight;
-    }
 
-    initializeCanvasElements() {
-        // Canvas要素の取得
-        this.imageCanvas = document.getElementById('imageCanvas');
-        this.drawCanvas = document.getElementById('drawCanvas');
-        // コンテキストの取得
-        this.imageCtx = this.imageCanvas.getContext('2d');
-        this.drawCtx = this.drawCanvas.getContext('2d');
         // Canvasサイズの設定
         this.setCanvas();
     }
 
-    initializeEventListeners() {
-        //描画処理イベントリスナー
-        this.initializeDrawingControlListeners();
-        // UI要素のイベントリスナー
-        this.initializeUIEventListeners();
-        // toioの位置更新イベントリスナー
-        this.initializePositionEventListeners();
-    }
-
-    initializeDrawingControlListeners() {
-        // 描画処理
-        document.getElementById('startDrawingButton').addEventListener('click', this.handleDrawingStart.bind(this));
-        document.getElementById('stopDrawingButton').addEventListener('click', this.handleDrawingStop.bind(this));
-        document.getElementById('clearButton').addEventListener('click', this.handleCanvasClear.bind(this));
-    }
-
-    handleDrawingStart() {
-        console.log('お絵かき開始ボタンがクリックされました');
-        this.positionController.startReadingPosition();
-        this.isDrawingActive = true;
-    }
-
-    handleDrawingStop() {
-        console.log('お絵かき停止ボタンがクリックされました');
-        this.positionController.stopReadingPosition();
-        this.isDrawingActive = false;
-    }
-
-    handleCanvasClear() {
-        console.log('Canvasクリアボタンがクリックされました');
-        this.clearCanvas();
-    }
-
-    initializeUIEventListeners() {
-        const sizeSlider = document.getElementById('size-slider');
-        const alphaSlider = document.getElementById('alpha-slider');
-        const colorPicker = document.getElementById('pencilColor');
-
-        // ペンの初期化
-        document.getElementById('size').textContent = this.lineWidth;
-        sizeSlider.value = this.lineWidth;
-        document.getElementById('transparent').textContent = this.alpha;
-        alphaSlider.value = this.alpha;
-
-        // スライダーの変更イベント
-        sizeSlider.addEventListener('input', (event) => {
-            this.setLineWidth(event.target.value);
-        });
-        alphaSlider.addEventListener('input', (event) => {
-            this.setAlpha(event.target.value);
-        });
-        colorPicker.addEventListener('input', (event) => {
-            this.setColor(event.target.value);
-        });
-
-        // モード切り替え
-        document.querySelectorAll('input[name="mode"]').forEach(radio => {
-            radio.addEventListener('change', (event) => {
-                this.mode = event.target.value === '1' ? 'pen' : 'eraser';
-            });
-        });
-
-        /*
-        document.addEventListener('DOMContentLoaded', () => {
-            const modeRadios = document.querySelectorAll('input[name="mode"]');
-            modeRadios.forEach(radio => {
-                radio.addEventListener('change', (event) => {
-                    if (event.target.value === '1') {
-                        drawingController.setMode('pen');
-                        console.log('ペンに切り替わりました');
-                    } else if (event.target.value === '2') {
-                        drawingController.setMode('eraser');
-                        console.log('消しゴムに切り替わりました');
-                    }
-                });
-            });
-        });
-        */
-    }
-
-    initializePositionEventListeners() {
-        //toioの位置更新イベント
-        //decodePositionDataContinuousメソッドで発火
-        document.addEventListener('positionUpdated', (event) => {
-            if (this.isDrawingActive) {
-                this.draw(event.detail);
-            }
-        });
-
-        //toioの位置取得失敗イベント
-        //PositionContorollerのPositionMissedメソッドで発火
-        document.addEventListener('positionMissed', (event) => {
-            if (this.isDrawingActive) {
-                this.drawFinish();
-            }
-        });
-
-    }
-
-    /*
-    ==============================
-    Canvasサイズ設定
-    ==============================
-    */
-
+    //Canvasサイズ適用
     setCanvas = () => {
         // Canvasのサイズを設定
         this.imageCanvas.width = this.canvasWidth;
@@ -743,42 +742,11 @@ class DrawingController {
     ==============================
     */
 
-    setMode(mode) {
-        this.mode = mode;
-    }
-
-    // ペン設定
-    // 色
-    setColor(value) {
-        this.color = value;
-        this.storageController.updateDrawingState(this.color, this.alpha, this.lineWidth);
-    }
-
-    // 透過度
-    setAlpha(value) {
-        this.alpha = value;
-        document.getElementById('transparent').textContent = value;
-        this.storageController.updateDrawingState(this.color, this.alpha, this.lineWidth);
-    }
-
-    // 太さ
-    setLineWidth(value) {
-        this.lineWidth = value;
-        document.getElementById('size').textContent = value;
-        this.storageController.updateDrawingState(this.color, this.alpha, this.lineWidth);
-    }
-
     // toio座標をCanvas座標に変換するメソッド
     toioToCanvasCoords(x, y) {
         const canvasX = (x + this.config.positionReg.x) * this.scaleX;
         const canvasY = (y + this.config.positionReg.y) * this.scaleY;
         return { x: canvasX, y: canvasY };
-    }
-
-    //Canvasクリア
-    clearCanvas = () => {
-        this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
-        // this.setCanvasStyle();
     }
 
     /* メインの描画メソッド */
@@ -787,11 +755,11 @@ class DrawingController {
             //１．座標変換
             const coords = this.convertCoordinates(info);
             //２．ピクセルデータの取得と保存
-            const pixelData = this.caputurePixelData(coords);
+            this.caputurePixelData(coords);
             //３．描画の実行
             this.performDrow(coords);
             //４．現在の座標を保存
-            this.updateCurrentPosition(coords);
+            this.state.updatePosition(coords.toX, coords.toY);
         } catch (error) {
             console.error('描画処理でエラーが発生しました:', error);
         }
@@ -810,32 +778,32 @@ class DrawingController {
 
         if (this.imageCtx) {
             // imageCtxピクセルデータの取得
-            const imagePixelData = this.imageCtx.getImageData(toX, toY, 1, 1).data;
+            const imageData = this.imageCtx.getImageData(toX, toY, 1, 1).data;
             // 履歴として保持
-            this.imagePixelDataHistory.push(Array.from(imagePixelData));
+            this.state.addToHistory('imagePixelData', imageData);
             // console.log(`画像ピクセル (${toX}, ${toY}):`, imagePixelData);
         }
 
         // drawCtxピクセルデータの取得
-        const drawPixelData = this.drawCtx.getImageData(toX, toY, 1, 1).data;
+        const drawData = this.drawCtx.getImageData(toX, toY, 1, 1).data;
         // 履歴として保持
-        this.drawPixelDataHistory.push(Array.from(drawPixelData));
+        this.state.addToHistory('drawPixelData', drawData);
         // console.log(`描画ピクセル (${toX}, ${toY}):`, drawPixelData);
-
-        return {
-            imagePixelData: this.imagePixelDataHistory[this.imagePixelDataHistory.length - 1],
-            drawPixelData: this.drawPixelDataHistory[this.drawPixelDataHistory.length - 1]
-        };
     }
 
     //描画実行処理　親要素
     performDrow(coords) {
         const { toX, toY } = coords;
-        const fromX = this.x || toX;
-        const fromY = this.y || toY;
+        const currentPosition = this.state.position;
+
+        // 初回描画時は現在の位置を開始点とする
+        if (currentPosition.x === null || currentPosition.y === null) {
+            this.state.updatePosition(toX, toY);
+            return;
+        }
 
         // パスの設定
-        this.setupDrawPath(fromX, fromY, toX, toY);
+        this.setupDrawPath(currentPosition.x, currentPosition.y, toX, toY);
 
         // 描画スタイルの設定
         this.applyDrawingStyle();
@@ -854,27 +822,126 @@ class DrawingController {
 
     // 描画スタイルの適用
     applyDrawingStyle() {
-        this.drawCtx.lineWidth = this.lineWidth;
+        const { color, alpha, lineWidth, mode } = this.state.penSettings;
 
-        if (this.mode === 'pen') {
-            this.drawCtx.strokeStyle = this.color;
-            this.drawCtx.globalAlpha = this.alpha;
-        } else if (this.mode === 'eraser') {
+        this.drawCtx.lineWidth = lineWidth;
+        if (mode === 'pen') {
+            this.drawCtx.strokeStyle = color;
+            this.drawCtx.globalAlpha = alpha;
+        } else {
             this.drawCtx.strokeStyle = 'white';
             this.drawCtx.globalAlpha = 1;
         }
     }
 
-    updateCurrentPosition(coords) {
-        this.x = coords.toX;
-        this.y = coords.toY;
-    }
-
     // toioから座標が取れなくなったら、座標をリセット
     drawFinish() {
         this.drawCtx.closePath();
-        this.x = null;
-        this.y = null;
+        // 状態をリセット
+        this.state.updatePosition(null, null);
+    }
+
+    // 状態変更ハンドラ
+    handleStateChange(type, data) {
+        switch (type) {
+            case 'penSettings':
+                this.storageController.updateDrawingState(
+                    data.color,
+                    data.alpha,
+                    data.lineWidth
+                );
+                break;
+            // 他の状態変更ハンドリング
+        }
+    }
+}
+
+class DrawingState {
+    constructor() {
+        // 描画フラグの状態
+        this.flags = {
+            isDrawingActive: false,
+            isImageDrawn: false
+        };
+
+        // ペンの設定状態
+        this.penSettings = {
+            color: '#000000',
+            alpha: 1,
+            lineWidth: 3,
+            mode: 'pen'
+        };
+
+        // 座標状態
+        this.position = {
+            x: null,
+            y: null
+        };
+
+        // ピクセルデータの履歴
+        this.history = {
+            imagePixelData: [],
+            drawPixelData: []
+        };
+
+        // キャンバスの状態
+        this.canvasState = {
+            width: null,
+            height: null,
+            scale: 1
+        };
+
+        this.notifyStateChange('initialized', this.getSnapshot());
+    }
+
+    setDrawingActive(isActive) {
+        this.flags.isDrawingActive = isActive;
+        this.notifyStateChange('drawingActive', isActive);
+    }
+
+    setImageDrawn(isDrawn) {
+        this.flags.isImageDrawn = isDrawn;
+        this.notifyStateChange('imageDrawn', isDrawn);
+    }
+
+    updatePenSettings(settings) {
+        Object.assign(this.penSettings, settings);
+        this.notifyStateChange('penSettings', this.penSettings);
+    }
+
+    updatePosition(x, y) {
+        this.position.x = x;
+        this.position.y = y;
+        this.notifyStateChange('position', this.position);
+    }
+
+    addToHistory(type, data) {
+        this.history[type].push(Array.from(data));
+        this.notifyStateChange('history', { type, data });
+    }
+
+    notifyStateChange(type, data) {
+        const event = new CustomEvent('drawingStateChange', {
+            detail: { type, data }
+        });
+        document.dispatchEvent(event);
+    }
+
+    reset() {
+        this.position.x = null;
+        this.position.y = null;
+        this.history.imagePixelData = [];
+        this.history.drawPixelData = [];
+        this.notifyStateChange('reset', null);
+    }
+
+    getSnapshot() {
+        return {
+            flags: { ...this.flags },
+            penSettings: { ...this.penSettings },
+            position: { ...this.position },
+            canvasState: { ...this.canvasState }
+        };
     }
 }
 
@@ -1035,7 +1102,7 @@ class ReplayController {
         let index = parseInt(this.slider.value, 10);
         this.isReplaying = true;
 
-        this.drawingController.clearCanvas();
+        this.drawingController.handleCanvasClear();
 
         clearInterval(this.replayInterval);
         this.replayInterval = setInterval(() => {
@@ -1062,7 +1129,7 @@ class ReplayController {
     }
 
     drawPoints = (index) => {
-        this.drawingController.clearCanvas();
+        this.drawingController.handleCanvasClear();
 
         for (let i = 0; i <= index; i++) {
             const point = this.storageData[i];
@@ -1624,81 +1691,6 @@ const scoringSystem = new ScoringSystem();
 ==============================
 イベントリスナー
 ==============================
-*/
-
-/*
-// 画像ファイルをCanvasに描画
-document.getElementById('uploadfile').addEventListener('change', function (event) {
-    const file = event.target.files[0];
-    if (!file) {
-        return;
-    }
-
-    if (file.type.indexOf("image") < 0) {
-        alert("画像ファイルを指定してください。");
-        return false;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-            const imageCanvas = document.getElementById('imageCanvas');
-            const drawCanvas = document.getElementById('drawCanvas');
-            const imageCtx = imageCanvas.getContext('2d');
-            const drawCtx = drawCanvas.getContext('2d');
-
-            const toioMatWidth = drawingController.toioMatWidth;
-            const toioMatHeight = drawingController.toioMatHeight;
-
-            // canvasエリアと画像のスケールを計算（縦・横 スケール値が低い方を採用）
-            const scale = Math.min(
-                document.getElementById('canvas-area').clientWidth / img.naturalWidth,
-                document.getElementById('canvas-area').clientHeight / img.naturalHeight
-            );
-
-            // 画像の縮小後の幅と高さを計算
-            const scaledWidth = img.naturalWidth * scale;
-            const scaledHeight = img.naturalHeight * scale;
-
-            // toioマットの比率を維持するためのスケール
-            const toioMatScale = Math.min(scaledWidth / toioMatWidth, scaledHeight / toioMatHeight);
-
-            // Canvasエリアの高さ・幅を設定
-            imageCanvas.width = toioMatWidth * toioMatScale;
-            imageCanvas.height = toioMatHeight * toioMatScale;
-
-            drawCanvas.width = imageCanvas.width;
-            drawCanvas.height = imageCanvas.height;
-
-            // Canvasをクリア
-            imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
-
-            imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
-
-            drawingController.isImageDrawn = true;
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-});
-
-// 画像削除
-document.getElementById('removeImage').addEventListener('click', () => {
-    const imageCanvas = document.getElementById('imageCanvas');
-    const drawCanvas = document.getElementById('drawCanvas');
-    const ctx = imageCanvas.getContext('2d');
-
-    // ファイル選択をクリア
-    document.getElementById('uploadfile').value = '';
-    // Canvasをクリア
-    ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
-
-    // Canvasサイズを初期設定に戻す
-    drawingController.resetCanvasSize();
-
-    drawingController.isImageDrawn = false;
-});
 */
 
 // ローカルストレージデータ取得
