@@ -661,15 +661,6 @@ class DrawingController {
         this.y = null;
     }
 
-    //描画開始フラグ
-    startDrawing() {
-        this.isDrawingActive = true;
-    }
-
-    stopDrawing() {
-        this.isDrawingActive = false;
-    }
-
     /* 描画処理 */
     draw = (info) => {
         const { x: toX, y: toY } = this.toioToCanvasCoords(info.sensorX, info.sensorY);
@@ -1368,12 +1359,12 @@ document.getElementById('disconnectButton').addEventListener('click', () => blue
 document.getElementById('startDrawingButton').addEventListener('click', () => {
     console.log('お絵かき開始ボタンがクリックされました');
     positionController.startReadingPosition();
-    drawingController.startDrawing();
+    drawingController.isDrawingActive = true;
 });
 document.getElementById('stopDrawingButton').addEventListener('click', () => {
     console.log('お絵かき停止ボタンがクリックされました');
     positionController.stopReadingPosition();
-    drawingController.stopDrawing();
+    drawingController.isDrawingActive = false;
 });
 document.getElementById('clearButton').addEventListener('click', () => {
     console.log('Canvasクリアボタンがクリックされました');
