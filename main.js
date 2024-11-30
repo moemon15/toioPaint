@@ -781,72 +781,100 @@ class DrawingController {
         // this.setCanvasStyle();
     }
 
-    // toioから座標が取れなくなったら、座標をリセット
-    drawFinish = () => {
-        this.x = null;
-        this.y = null;
+    /* メインの描画メソッド */
+    draw(info) {
+        try {
+            //１．座標変換
+            const coords = this.convertCoordinates(info);
+            //２．ピクセルデータの取得と保存
+            const pixelData = this.caputurePixelData(coords);
+            //３．描画の実行
+            this.performDrow(coords);
+            //４．現在の座標を保存
+            this.updateCurrentPosition(coords);
+        } catch (error) {
+            console.error('描画処理でエラーが発生しました:', error);
+        }
     }
 
-    /* 描画処理 */
-    draw = (info) => {
-        const { x: toX, y: toY } = this.toioToCanvasCoords(info.sensorX, info.sensorY);
+    convertCoordinates(info) {
+        //toio座標をCanvas座標に変換
+        const toX = (info.sensorX + this.config.positionReg.x) * this.scaleX;
+        const toY = (info.sensorY + this.config.positionReg.y) * this.scaleY;
 
-        const PixeltoX = (info.sensorX + this.config.positionReg.x) * this.scaleX;
-        const PixeltoY = (info.sensorY + this.config.positionReg.y) * this.scaleY;
+        return { toX, toY };
+    }
 
-        /*
-        ==================
-        ピクセルデータ取得・保存
-        ==================
-        */
+    caputurePixelData(coords) {
+        const { toX, toY } = coords;
 
         if (this.imageCtx) {
             // imageCtxピクセルデータの取得
-            const imagePixelData = this.imageCtx.getImageData(PixeltoX, PixeltoY, 1, 1).data;
+            const imagePixelData = this.imageCtx.getImageData(toX, toY, 1, 1).data;
             // 履歴として保持
             this.imagePixelDataHistory.push(Array.from(imagePixelData));
+            // console.log(`画像ピクセル (${toX}, ${toY}):`, imagePixelData);
         }
 
-        // imageCtxピクセルデータの取得
-        const imagePixelData = this.imageCtx.getImageData(PixeltoX, PixeltoY, 1, 1).data;
-        console.log(`画像ピクセル (${PixeltoX}, ${PixeltoY}):`, imagePixelData);
-
         // drawCtxピクセルデータの取得
-        const drawPixelData = this.drawCtx.getImageData(PixeltoX, PixeltoY, 1, 1).data;
-        console.log(`描画ピクセル (${PixeltoX}, ${PixeltoY}):`, drawPixelData);
-
+        const drawPixelData = this.drawCtx.getImageData(toX, toY, 1, 1).data;
         // 履歴として保持
-        this.imagePixelDataHistory.push(Array.from(imagePixelData));
         this.drawPixelDataHistory.push(Array.from(drawPixelData));
+        // console.log(`描画ピクセル (${toX}, ${toY}):`, drawPixelData);
 
-        this.drawCtx.beginPath();
+        return {
+            imagePixelData: this.imagePixelDataHistory[this.imagePixelDataHistory.length - 1],
+            drawPixelData: this.drawPixelDataHistory[this.drawPixelDataHistory.length - 1]
+        };
+    }
 
+    //描画実行処理　親要素
+    performDrow(coords) {
+        const { toX, toY } = coords;
         const fromX = this.x || toX;
         const fromY = this.y || toY;
 
+        // パスの設定
+        this.setupDrawPath(fromX, fromY, toX, toY);
+
+        // 描画スタイルの設定
+        this.applyDrawingStyle();
+
+        // 描画の実行
+        this.drawCtx.stroke();
+    }
+
+    // 描画パスの設定
+    setupDrawPath(fromX, fromY, toX, toY) {
+        this.drawCtx.beginPath();
         this.drawCtx.moveTo(fromX, fromY);
         this.drawCtx.lineTo(toX, toY);
-
-        //線の形状
         this.drawCtx.lineCap = 'round';
-        //線の幅
+    }
+
+    // 描画スタイルの適用
+    applyDrawingStyle() {
         this.drawCtx.lineWidth = this.lineWidth;
 
         if (this.mode === 'pen') {
-            //線の色
             this.drawCtx.strokeStyle = this.color;
-            //透明度
             this.drawCtx.globalAlpha = this.alpha;
         } else if (this.mode === 'eraser') {
             this.drawCtx.strokeStyle = 'white';
             this.drawCtx.globalAlpha = 1;
         }
+    }
 
-        //現在の線のスタイルで描画
-        this.drawCtx.stroke();
+    updateCurrentPosition(coords) {
+        this.x = coords.toX;
+        this.y = coords.toY;
+    }
 
-        this.x = toX;
-        this.y = toY;
+    // toioから座標が取れなくなったら、座標をリセット
+    drawFinish() {
+        this.drawCtx.closePath();
+        this.x = null;
+        this.y = null;
     }
 }
 
