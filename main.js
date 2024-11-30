@@ -439,21 +439,108 @@ class PositionController {
     }
 }
 
-class DrawingController {
 
-    constructor(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY) {
+/*
+==============================
+デフォルト設定値の定義
+==============================
+*/
+const DEFAULT_CONFIG = {
+    matBounds: {
+        topLeft: { x: 90, y: 130 },
+        bottomRight: { x: 410, y: 370 }
+    },
+    canvas: {
+        width: 320,
+        height: 240
+    },
+    positionReg: { x: -90, y: -140 }
+};
+
+class DrawingController {
+    //JSDoc
+    /**
+     * @typedef {Object} MatBounds
+     * @property {Object} topLeft - 左上座標
+     * @property {number} topLeft.x - X座標
+     * @property {number} topLeft.y - Y座標
+     * @property {Object} bottomRight - 右下座標
+     * @property {number} bottomRight.x - X座標
+     * @property {number} bottomRight.y - Y座標
+     */
+
+    /**
+     * @typedef {Object} CanvasConfig
+     * @property {number} width - キャンバスの幅
+     * @property {number} height - キャンバスの高さ
+     */
+
+    /**
+     * @typedef {Object} PositionReg
+     * @property {number} x - X座標のオフセット
+     * @property {number} y - Y座標のオフセット
+     */
+
+    /**
+     * @typedef {Object} DrawingConfig
+     * @property {MatBounds} matBounds - toioマットの境界設定
+     * @property {CanvasConfig} canvas - キャンバスの設定
+     * @property {PositionReg} positionReg - 位置補正値
+     */
+
+    /**
+     * DrawingControllerのコンストラクタ
+     * @param {DrawingConfig} config - 描画の設定オブジェクト
+     * @param {StorageController} storageController - ストレージ管理
+     * @param {PositionController} positionController - 位置情報管理
+     */
+
+    constructor(config = {}, storageController, positionController) {
+        // 設定のマージ（デフォルト値と引数の値を合成）
+        this.config = this.mergeConfig(DEFAULT_CONFIG, config);
+
         this.storageController = storageController;
         this.positionController = positionController;
 
         //描画状態の初期化
         this.initializeDrawingState();
         //Canvas設定の初期化
-        this.initializeCanvasSettings(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY);
+        this.initializeCanvasSettings();
         //Canvas要素の初期化
         this.initializeCanvasElements();
         //イベントリスナーの設定
         this.initializeEventListeners();
 
+    }
+
+    /**
+     * 設定オブジェクトのマージ
+     * @private
+     * @param {DrawingConfig} defaultConfig - デフォルト設定
+     * @param {Partial<DrawingConfig>} userConfig - ユーザー設定
+     * @returns {DrawingConfig} マージされた設定
+     */
+    mergeConfig(defaultConfig, userConfig) {
+        return {
+            matBounds: {
+                topLeft: {
+                    x: userConfig.matBounds?.topLeft?.x ?? defaultConfig.matBounds.topLeft.x,
+                    y: userConfig.matBounds?.topLeft?.y ?? defaultConfig.matBounds.topLeft.y
+                },
+                bottomRight: {
+                    x: userConfig.matBounds?.bottomRight?.x ?? defaultConfig.matBounds.bottomRight.x,
+                    y: userConfig.matBounds?.bottomRight?.y ?? defaultConfig.matBounds.bottomRight.y
+                }
+            },
+            canvas: {
+                width: userConfig.canvas?.width ?? defaultConfig.canvas.width,
+                height: userConfig.canvas?.height ?? defaultConfig.canvas.height
+            },
+            positionReg: {
+                x: userConfig.positionReg?.x ?? defaultConfig.positionReg.x,
+                y: userConfig.positionReg?.y ?? defaultConfig.positionReg.y
+            }
+        };
     }
 
     initializeDrawingState() {
@@ -482,16 +569,10 @@ class DrawingController {
     Canvasの「描画バッファーのサイズ」と「表示サイズ」を設定
     ==============================
     */
-    initializeCanvasSettings(toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY) {
-
-        //toioマット座標調整　オフセット
-        /* toioマットの座標を0にずらす */
-        this.positionRegX = positionRegX;
-        this.positionRegY = positionRegY;
-
+    initializeCanvasSettings() {
         // toioマットサイズ計算
-        this.toioMatWidth = toioMatBottomRightX - toioMatTopLeftX;
-        this.toioMatHeight = toioMatBottomRightY - toioMatTopLeftY;
+        this.toioMatWidth = this.config.matBounds.bottomRight.x - this.config.matBounds.topLeft.x;
+        this.toioMatHeight = this.config.matBounds.bottomRight.y - this.config.matBounds.topLeft.y;
 
         // デバイスピクセル比を取得
         // const dpr = window.devicePixelRatio || 1;
@@ -650,23 +731,6 @@ class DrawingController {
         // this.drawCanvas.style.height = `${this.displayHeight}px`;
     }
 
-    // 画像が設定された場合にCanvasのサイズを変更
-    // updateCanvasSizeForImage = (img) => {
-    //     this.canvasWidth = img.width;
-    //     console.log(`update.canvasWidth：${this.canvasWidth}`);
-    //     this.canvasHeight = img.height;
-    //     console.log(`update.canvasHeight：${this.canvasHeight}`);
-    //     // this.scaleX = this.canvasWidth / this.toioMatWidth;
-    //     // this.scaleY = this.canvasHeight / this.toioMatHeight;
-    //     console.log(this.scaleX);
-    //     console.log(this.scaleY);
-    //     // CSSの表示サイズも同じに設定
-    //     this.displayWidth = img.width;
-    //     console.log(`update.displayWidth:${this.displayWidth}`);
-    //     this.displayHeight = img.height;
-    //     this.setCanvas();
-    // }
-
     // Canvasを初期設定に戻す
     resetCanvasSize = () => {
         this.canvasWidth = this.defaultCanvasWidth;
@@ -707,8 +771,8 @@ class DrawingController {
 
     // toio座標をCanvas座標に変換するメソッド
     toioToCanvasCoords(x, y) {
-        const canvasX = (x + this.positionRegX) * this.scaleX;
-        const canvasY = (y + this.positionRegY) * this.scaleY;
+        const canvasX = (x + this.config.positionReg.x) * this.scaleX;
+        const canvasY = (y + this.config.positionReg.y) * this.scaleY;
         return { x: canvasX, y: canvasY };
     }
 
@@ -728,8 +792,8 @@ class DrawingController {
     draw = (info) => {
         const { x: toX, y: toY } = this.toioToCanvasCoords(info.sensorX, info.sensorY);
 
-        const PixeltoX = (info.sensorX + this.positionRegX) * this.scaleX;
-        const PixeltoY = (info.sensorY + this.positionRegY) * this.scaleY;
+        const PixeltoX = (info.sensorX + this.config.positionReg.x) * this.scaleX;
+        const PixeltoY = (info.sensorY + this.config.positionReg.y) * this.scaleY;
 
         /*
         ==================
@@ -1397,8 +1461,8 @@ class CanvasToToio {
 const bluetoothController = new BluetoothController();
 const storageController = new StorageController();
 const positionController = new PositionController(bluetoothController, storageController);
-// toioMatTopLeftX, toioMatTopLeftY, toioMatBottomRightX, toioMatBottomRightY, CanvasWidth, CanvasHeight, positionRegX, positionRegY
-const drawingController = new DrawingController(90, 130, 410, 370, 320, 240, -90, -140, storageController, positionController);
+const drawingController = new DrawingController(DEFAULT_CONFIG, storageController, positionController);
+
 // const canvasToToio = new CanvasToToio(bluetoothController, storageController);
 document.addEventListener('DOMContentLoaded', () => {
     replayController = new ReplayController(drawingController, storageController);
@@ -1517,7 +1581,4 @@ document.getElementById('toio-replay-start').addEventListener('click', () => {
     console.log('toioリプレイ開始ボタンがクリックされました');
     canvasToToio.startReplay();
 });
-
-
-
 
