@@ -444,6 +444,45 @@ class PositionController {
 デフォルト設定値の定義
 ==============================
 */
+
+//JSDoc
+/**
+ * @typedef {Object} MatBounds
+ * @property {Object} topLeft - 左上座標
+ * @property {number} topLeft.x - X座標
+ * @property {number} topLeft.y - Y座標
+ * @property {Object} bottomRight - 右下座標
+ * @property {number} bottomRight.x - X座標
+ * @property {number} bottomRight.y - Y座標
+*/
+
+/**
+ * @typedef {Object} CanvasConfig
+ * @property {number} width - キャンバスの幅
+ * @property {number} height - キャンバスの高さ
+*/
+
+/**
+ * @typedef {Object} PositionReg
+ * @property {number} x - X座標のオフセット
+ * @property {number} y - Y座標のオフセット
+*/
+
+/**
+ * @typedef {'sensor' | 'center'} CoordinateType
+ * @description
+ * - 'sensor': toioのセンサー位置の座標を使用
+ * - 'center': toioキューブの中心位置の座標を使用
+*/
+
+/**
+ * @typedef {Object} DrawingConfig
+ * @property {MatBounds} matBounds - toioマットの境界設定
+ * @property {CanvasConfig} canvas - キャンバスの設定
+ * @property {PositionReg} positionReg - 位置補正値
+ * @property {CoordinateType} coordinateType - 使用する座標タイプ
+*/
+
 const DEFAULT_CONFIG = {
     matBounds: {
         topLeft: { x: 90, y: 130 },
@@ -453,46 +492,17 @@ const DEFAULT_CONFIG = {
         width: 320,
         height: 240
     },
-    positionReg: { x: -90, y: -140 }
+    positionReg: { x: -90, y: -140 },
+    coordinateType: 'sensor'
 };
 
 class DrawingController {
-    //JSDoc
-    /**
-     * @typedef {Object} MatBounds
-     * @property {Object} topLeft - 左上座標
-     * @property {number} topLeft.x - X座標
-     * @property {number} topLeft.y - Y座標
-     * @property {Object} bottomRight - 右下座標
-     * @property {number} bottomRight.x - X座標
-     * @property {number} bottomRight.y - Y座標
-     */
-
-    /**
-     * @typedef {Object} CanvasConfig
-     * @property {number} width - キャンバスの幅
-     * @property {number} height - キャンバスの高さ
-     */
-
-    /**
-     * @typedef {Object} PositionReg
-     * @property {number} x - X座標のオフセット
-     * @property {number} y - Y座標のオフセット
-     */
-
-    /**
-     * @typedef {Object} DrawingConfig
-     * @property {MatBounds} matBounds - toioマットの境界設定
-     * @property {CanvasConfig} canvas - キャンバスの設定
-     * @property {PositionReg} positionReg - 位置補正値
-     */
-
     /**
      * DrawingControllerのコンストラクタ
      * @param {DrawingConfig} config - 描画の設定オブジェクト
      * @param {StorageController} storageController - ストレージ管理
      * @param {PositionController} positionController - 位置情報管理
-     */
+    */
 
     constructor(config = {}, storageController, positionController) {
         // 状態管理の初期化
@@ -540,7 +550,8 @@ class DrawingController {
             positionReg: {
                 x: userConfig.positionReg?.x ?? defaultConfig.positionReg.x,
                 y: userConfig.positionReg?.y ?? defaultConfig.positionReg.y
-            }
+            },
+            coordinateType: userConfig.coordinateType ?? defaultConfig.coordinateType
         };
     }
 
@@ -743,9 +754,13 @@ class DrawingController {
     }
 
     convertCoordinates(info) {
+        const coords = this.config.coordinateType === 'sensor'
+            ? { x: info.sensorX, y: info.sensorY }
+            : { x: info.x, y: info.y };
+
         //toio座標をCanvas座標に変換
-        const toX = (info.sensorX + this.config.positionReg.x) * this.scaleX;
-        const toY = (info.sensorY + this.config.positionReg.y) * this.scaleY;
+        const toX = (coords.x + this.config.positionReg.x) * this.scaleX;
+        const toY = (coords.y + this.config.positionReg.y) * this.scaleY;
 
         return { toX, toY };
     }
