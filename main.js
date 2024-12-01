@@ -668,22 +668,38 @@ class DrawingController {
     ==============================
     */
     initializeCanvasSettings() {
+        this.calculateToioMatDimensions();
+        this.setDisplayDimensions();
+        this.setCanvasDimensions();
+        this.calculateScaleFactors();
+        this.setCanvas();
+    }
+
+    calculateToioMatDimensions() {
         // toioマットサイズ計算
         this.toioMatWidth = this.config.matBounds.bottomRight.x - this.config.matBounds.topLeft.x;
         this.toioMatHeight = this.config.matBounds.bottomRight.y - this.config.matBounds.topLeft.y;
+    }
 
+    setDisplayDimensions() {
         // デバイスピクセル比を取得
         // const dpr = window.devicePixelRatio || 1;
 
         // ブラウザに表示するCanvasのサイズ
         // / 任意のサイズ
-        this.displayWidth = 320 * 4.5;
+        const baseDisplayWidth = 320;
+        const displayScale = 4.5;
+        this.displayWidth = baseDisplayWidth * displayScale;
+
         // toioマットの縦横比を維持
         this.displayHeight = this.displayWidth * (this.toioMatHeight / this.toioMatWidth);
+    }
 
-        // Canvasサイズの初期設定
+    setCanvasDimensions() {
+        // デフォルトのCanvasサイズ設定
         this.defaultCanvasWidth = this.displayWidth;
         this.defaultCanvasHeight = this.displayHeight;
+        // 現在のCanvasのサイズ設定
         this.canvasWidth = this.defaultCanvasWidth;
         this.canvasHeight = this.defaultCanvasHeight;
 
@@ -693,22 +709,21 @@ class DrawingController {
         // Canvas表示サイズ (CSS)
         // this.displayWidth = this.defaultDisplayWidth;  
         // this.displayHeight = this.defaultDisplayHeight;
+    }
 
-        // スケール計算
+    calculateScaleFactors() {
+        // toioマット座標系からCanvas座標系への変換スケールを計算
         this.scaleX = this.canvasWidth / this.toioMatWidth;
         this.scaleY = this.canvasHeight / this.toioMatHeight;
-
-        // Canvasサイズの設定
-        this.setCanvas();
     }
 
     //Canvasサイズ適用
-    setCanvas = () => {
-        // Canvasのサイズを設定
-        this.imageCanvas.width = this.canvasWidth;
-        this.imageCanvas.height = this.canvasHeight;
-        this.drawCanvas.width = this.canvasWidth;
-        this.drawCanvas.height = this.canvasHeight;
+    setCanvas() {
+        // 両方のキャンバスに同じサイズを設定
+        [this.imageCanvas, this.drawCanvas].forEach(canvas => {
+            canvas.width = this.canvasWidth;
+            canvas.height = this.canvasHeight;
+        });
 
         // CSSの表示サイズを設定
         // this.imageCanvas.style.width = `${this.displayWidth}px`;
@@ -722,6 +737,7 @@ class DrawingController {
         this.canvasWidth = this.defaultCanvasWidth;
         this.canvasHeight = this.defaultCanvasHeight;
         this.setCanvas();
+        this.calculateScaleFactors();
     }
 
     /*
