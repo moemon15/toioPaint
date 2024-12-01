@@ -544,29 +544,6 @@ class DrawingController {
         };
     }
 
-    /*
-    initializeDrawingState() {
-        //描画フラグの初期化
-        // 描画の有効/無効
-        this.isDrawingActive = false;
-        // imageCanvasの画像の有無
-        this.isImageDrawn = false;
-
-        // ペン設定の初期化
-        this.color = '#000000';
-        this.alpha = 1;
-        this.lineWidth = 3;
-        this.mode = 'pen';
-
-        // ピクセルデータの履歴を保持する配列
-        this.imagePixelDataHistory = [];
-        this.drawPixelDataHistory = [];
-
-        this.x = null;
-        this.y = null;
-    }
-    */
-
     initializeCanvasElements() {
         // Canvas要素の取得
         this.imageCanvas = document.getElementById('imageCanvas');
