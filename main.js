@@ -685,14 +685,17 @@ class DrawingController {
         // デバイスピクセル比を取得
         // const dpr = window.devicePixelRatio || 1;
 
-        // ブラウザに表示するCanvasのサイズ
-        // / 任意のサイズ
-        const baseDisplayWidth = 320;
+        // 基準となるCanvasの表示幅を設定
+        const baseDisplayWidth = this.toioMatWidth;
         const displayScale = 4.5;
+        //実際の表示幅を計算
         this.displayWidth = baseDisplayWidth * displayScale;
 
+        //toioマットのアスペクト比を計算
+        const aspectRatio = this.toioMatWidth / this.toioMatHeight;
+
         // toioマットの縦横比を維持
-        this.displayHeight = this.displayWidth * (this.toioMatHeight / this.toioMatWidth);
+        this.displayHeight = this.displayWidth / aspectRatio;
     }
 
     setCanvasDimensions() {
