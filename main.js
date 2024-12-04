@@ -476,11 +476,24 @@ class PositionController {
 */
 
 /**
+ * @typedef {Object} PhysicalDimensions
+ * @property {number} width - 物理的な幅（mm）
+ * @property {number} height - 物理的な高さ（mm）
+*/
+
+/**
+ * @typedef {Object} Display
+ * @property {number} targetWidth - 画面上で表示したい幅（ピクセル）
+*/
+
+/**
  * @typedef {Object} DrawingConfig
  * @property {MatBounds} matBounds - toioマットの境界設定
  * @property {CanvasConfig} canvas - キャンバスの設定
  * @property {PositionReg} positionReg - 位置補正値
  * @property {CoordinateType} coordinateType - 使用する座標タイプ
+ * @property {PhysicalDimensions} physicalDimensions - 物理的なサイズ設定
+ * @property {Display} display - 表示設定
 */
 
 const DEFAULT_CONFIG = {
@@ -493,7 +506,14 @@ const DEFAULT_CONFIG = {
         height: 240
     },
     positionReg: { x: -90, y: -140 },
-    coordinateType: 'sensor'
+    coordinateType: 'sensor',
+    physicalDimensions: {
+        width: 420,  // A3の幅（mm）
+        height: 297  // A3の高さ（mm）
+    },
+    display: {
+        targetWidth: 1450  // 画面上で表示したい幅（ピクセル）
+    }
 };
 
 class DrawingController {
@@ -551,7 +571,14 @@ class DrawingController {
                 x: userConfig.positionReg?.x ?? defaultConfig.positionReg.x,
                 y: userConfig.positionReg?.y ?? defaultConfig.positionReg.y
             },
-            coordinateType: userConfig.coordinateType ?? defaultConfig.coordinateType
+            coordinateType: userConfig.coordinateType ?? defaultConfig.coordinateType,
+            physicalDimensions: {
+                width: userConfig.physicalDimensions?.width ?? defaultConfig.physicalDimensions.width,
+                height: userConfig.physicalDimensions?.height ?? defaultConfig.physicalDimensions.height
+            },
+            display: {
+                targetWidth: userConfig.display?.targetWidth ?? defaultConfig.display.targetWidth
+            }
         };
     }
 
@@ -676,26 +703,23 @@ class DrawingController {
     }
 
     calculateToioMatDimensions() {
-        // toioマットサイズ計算
+        // toioマットの座標範囲を計算
         this.toioMatWidth = this.config.matBounds.bottomRight.x - this.config.matBounds.topLeft.x;
         this.toioMatHeight = this.config.matBounds.bottomRight.y - this.config.matBounds.topLeft.y;
+
+        // 物理的なアスペクト比を計算
+        this.physicalAspectRatio = this.config.physicalDimensions.width / this.config.physicalDimensions.height;
     }
 
     setDisplayDimensions() {
         // デバイスピクセル比を取得
         // const dpr = window.devicePixelRatio || 1;
 
-        // 基準となるCanvasの表示幅を設定
-        const baseDisplayWidth = this.toioMatWidth;
-        const displayScale = 4.5;
-        //実際の表示幅を計算
-        this.displayWidth = baseDisplayWidth * displayScale;
+        // 画面上で表示したい幅から表示幅を直接設定
+        this.displayWidth = this.config.display.targetWidth;
 
-        //toioマットのアスペクト比を計算
-        const aspectRatio = this.toioMatWidth / this.toioMatHeight;
-
-        // toioマットの縦横比を維持
-        this.displayHeight = this.displayWidth / aspectRatio;
+        // 物理的なアスペクト比に基づいて高さを計算
+        this.displayHeight = this.displayWidth / this.physicalAspectRatio
     }
 
     setCanvasDimensions() {
