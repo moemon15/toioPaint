@@ -505,7 +505,7 @@ const DEFAULT_CONFIG = {
         width: 320,
         height: 240
     },
-    positionReg: { x: -90, y: -140 },
+    positionReg: { x: -90, y: -130 },
     coordinateType: 'sensor',
     physicalDimensions: {
         width: 420,  // A3の幅（mm）
@@ -696,10 +696,10 @@ class DrawingController {
     */
     initializeCanvasSettings() {
         this.calculateToioMatDimensions();
-        this.setDisplayDimensions();
-        this.setCanvasDimensions();
+        this.initializeCanvasDisplaySize();
+        this.initializeCanvasBufferSize();
         this.calculateScaleFactors();
-        this.setCanvas();
+        this.applyCanvasSettings();
     }
 
     calculateToioMatDimensions() {
@@ -711,59 +711,75 @@ class DrawingController {
         this.physicalAspectRatio = this.config.physicalDimensions.width / this.config.physicalDimensions.height;
     }
 
-    setDisplayDimensions() {
-        // デバイスピクセル比を取得
-        // const dpr = window.devicePixelRatio || 1;
-
-        // 画面上で表示したい幅から表示幅を直接設定
-        this.displayWidth = this.config.display.targetWidth;
-
-        // 物理的なアスペクト比に基づいて高さを計算
-        this.displayHeight = this.displayWidth / this.physicalAspectRatio
+    initializeCanvasDisplaySize() {
+        this.displayDimensions = {
+            // 画面上で表示したい幅から表示幅を直接設定
+            width: this.config.display.targetWidth,
+            // 物理的なアスペクト比を維持して高さを計算
+            height: this.config.display.targetWidth / this.physicalAspectRatio
+        };
     }
 
-    setCanvasDimensions() {
-        // デフォルトのCanvasサイズ設定
-        this.defaultCanvasWidth = this.displayWidth;
-        this.defaultCanvasHeight = this.displayHeight;
-        // 現在のCanvasのサイズ設定
-        this.canvasWidth = this.defaultCanvasWidth;
-        this.canvasHeight = this.defaultCanvasHeight;
+    initializeCanvasBufferSize() {
+        /*
+        ==============================
+        デフォルト値の保持について
 
-        // Canvas表示サイズ初期設定を保持 (CSS)
-        // this.defaultDisplayWidth = 1400;
-        // this.defaultDisplayHeight = 1000;
-        // Canvas表示サイズ (CSS)
-        // this.displayWidth = this.defaultDisplayWidth;  
-        // this.displayHeight = this.defaultDisplayHeight;
+        現状は
+        デフォルト値と現在値が常に同じになっている
+        defaultCanvasWidth/HeightとcanvasWidth/Heightの値が常に一致
+        画像のアップロード時にresetCanvasSize()が呼ばれるが、実質的に現在の値を再設定しているだけ
+
+        将来的に以下のような機能を追加する場合に使用する
+        ・キャンバスのサイズを動的に変更する機能がある
+        ・複数のプリセットサイズを切り替える
+        ・ズーム機能を実装する
+        ==============================
+        */
+
+        // 描画バッファーのデフォルトサイズを設定
+        this.bufferDimensions = {
+            width: this.displayDimensions.width,
+            height: this.displayDimensions.height
+        };
+
+        // 現在のバッファーサイズを保持（スケーリング等で使用）
+        this.currentBufferSize = {
+            width: this.bufferDimensions.width,
+            height: this.bufferDimensions.height
+        };
     }
 
     calculateScaleFactors() {
         // toioマット座標系からCanvas座標系への変換スケールを計算
-        this.scaleX = this.canvasWidth / this.toioMatWidth;
-        this.scaleY = this.canvasHeight / this.toioMatHeight;
+        this.scaleX = this.currentBufferSize.width / this.toioMatWidth;
+        this.scaleY = this.currentBufferSize.height / this.toioMatHeight;
     }
 
     //Canvasサイズ適用
-    setCanvas() {
-        // 両方のキャンバスに同じサイズを設定
-        [this.imageCanvas, this.drawCanvas].forEach(canvas => {
-            canvas.width = this.canvasWidth;
-            canvas.height = this.canvasHeight;
-        });
+    applyCanvasSettings() {
+        const canvases = [this.imageCanvas, this.drawCanvas];
 
-        // CSSの表示サイズを設定
-        // this.imageCanvas.style.width = `${this.displayWidth}px`;
-        // this.imageCanvas.style.height = `${this.displayHeight}px`;
-        // this.drawCanvas.style.width = `${this.displayWidth}px`;
-        // this.drawCanvas.style.height = `${this.displayHeight}px`;
+        canvases.forEach(canvas => {
+            // バッファーサイズの設定（実際の描画解像度）
+            canvas.width = this.currentBufferSize.width;
+            canvas.height = this.currentBufferSize.height;
+
+            // CSS表示サイズの設定（画面上での見た目のサイズ）
+            // canvas.style.width = `${this.displayDimensions.width}px`;
+            // canvas.style.height = `${this.displayDimensions.height}px`;
+        });
     }
 
     // Canvasを初期設定に戻す
     resetCanvasSize = () => {
-        this.canvasWidth = this.defaultCanvasWidth;
-        this.canvasHeight = this.defaultCanvasHeight;
-        this.setCanvas();
+        // バッファーサイズを初期値に戻す
+        this.currentBufferSize = {
+            width: this.bufferDimensions.width,
+            height: this.bufferDimensions.height
+        };
+
+        this.applyCanvasSettings();
         this.calculateScaleFactors();
     }
 
