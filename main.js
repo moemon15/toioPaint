@@ -689,24 +689,24 @@ class DrawingController {
         });
     }
 
-    /*
-    ==============================
-    Canvasの「描画バッファーのサイズ」と「表示サイズ」を設定
-    ==============================
-    */
+
+    // Canvas設定の初期化メインメソッド
     initializeCanvasSettings() {
-        this.calculateToioMatDimensions();
+        this.calculateCoordinateSpaceDimensions();
+        this.calculatePhysicalDimensions();
         this.initializeCanvasDisplaySize();
         this.initializeCanvasBufferSize();
         this.calculateScaleFactors();
         this.applyCanvasSettings();
     }
 
-    calculateToioMatDimensions() {
+    calculateCoordinateSpaceDimensions() {
         // toioマットの座標範囲を計算
-        this.toioMatWidth = this.config.matBounds.bottomRight.x - this.config.matBounds.topLeft.x;
-        this.toioMatHeight = this.config.matBounds.bottomRight.y - this.config.matBounds.topLeft.y;
+        this.toioCoordinateSpaceWidth = this.config.matBounds.bottomRight.x - this.config.matBounds.topLeft.x;
+        this.toioCoordinateSpaceHeight = this.config.matBounds.bottomRight.y - this.config.matBounds.topLeft.y;
+    }
 
+    calculatePhysicalDimensions() {
         // 物理的なアスペクト比を計算
         this.physicalAspectRatio = this.config.physicalDimensions.width / this.config.physicalDimensions.height;
     }
@@ -751,9 +751,9 @@ class DrawingController {
     }
 
     calculateScaleFactors() {
-        // toioマット座標系からCanvas座標系への変換スケールを計算
-        this.scaleX = this.currentBufferSize.width / this.toioMatWidth;
-        this.scaleY = this.currentBufferSize.height / this.toioMatHeight;
+        // toioの座標空間からCanvas座標空間への変換係数を計算
+        this.scaleX = this.currentBufferSize.width / this.toioCoordinateSpaceWidth;
+        this.scaleY = this.currentBufferSize.height / this.toioCoordinateSpaceHeight;
     }
 
     //Canvasサイズ適用
@@ -769,6 +769,13 @@ class DrawingController {
             // canvas.style.width = `${this.displayDimensions.width}px`;
             // canvas.style.height = `${this.displayDimensions.height}px`;
         });
+    }
+
+    // toio座標をCanvas座標に変換するメソッド
+    toioToCanvasCoords(x, y) {
+        const canvasX = (x + this.config.positionReg.x) * this.scaleX;
+        const canvasY = (y + this.config.positionReg.y) * this.scaleY;
+        return { x: canvasX, y: canvasY };
     }
 
     // Canvasを初期設定に戻す
@@ -788,13 +795,6 @@ class DrawingController {
     描画処理
     ==============================
     */
-
-    // toio座標をCanvas座標に変換するメソッド
-    toioToCanvasCoords(x, y) {
-        const canvasX = (x + this.config.positionReg.x) * this.scaleX;
-        const canvasY = (y + this.config.positionReg.y) * this.scaleY;
-        return { x: canvasX, y: canvasY };
-    }
 
     /* メインの描画メソッド */
     draw(info) {
@@ -1052,8 +1052,8 @@ class ImageController {
 
     //１．サイズ計算
     calculateDimensions(img) {
-        const toioMatWidth = this.drawingController.toioMatWidth;
-        const toioMatHeight = this.drawingController.toioMatHeight;
+        const toioMatWidth = this.drawingController.toioCoordinateSpaceWidth;
+        const toioMatHeight = this.drawingController.toioCoordinateSpaceHeight;
 
         // canvasエリアと画像のスケールを計算
         const scale = Math.min(
