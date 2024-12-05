@@ -501,10 +501,6 @@ const DEFAULT_CONFIG = {
         topLeft: { x: 90, y: 130 },
         bottomRight: { x: 410, y: 370 }
     },
-    canvas: {
-        width: 320,
-        height: 240
-    },
     positionReg: { x: -90, y: -130 },
     coordinateType: 'sensor',
     physicalDimensions: {
@@ -759,7 +755,7 @@ class DrawingController {
         // 高さが領域を超える場合は、高さに合わせて調整
         if (displayHeight > this.canvasAreaDimensions.height) {
             displayHeight = this.canvasAreaDimensions.height;
-            displayWidth = displayHeight * matAspectRatio;
+            displayWidth = displayHeight * this.matAspectRatio;
         }
 
         this.displayDimensions = {
