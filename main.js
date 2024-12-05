@@ -511,9 +511,6 @@ const DEFAULT_CONFIG = {
         width: 420,  // A3の幅（mm）
         height: 297  // A3の高さ（mm）
     },
-    display: {
-        targetWidth: 1450  // 画面上で表示したい幅（ピクセル）
-    }
 };
 
 class DrawingController {
@@ -576,9 +573,6 @@ class DrawingController {
                 width: userConfig.physicalDimensions?.width ?? defaultConfig.physicalDimensions.width,
                 height: userConfig.physicalDimensions?.height ?? defaultConfig.physicalDimensions.height
             },
-            display: {
-                targetWidth: userConfig.display?.targetWidth ?? defaultConfig.display.targetWidth
-            }
         };
     }
 
@@ -694,6 +688,7 @@ class DrawingController {
     initializeCanvasSettings() {
         this.calculateCoordinateSpaceDimensions();
         this.calculatePhysicalDimensions();
+        this.calculateCanvasArea();
         this.initializeCanvasBufferSize();
         this.initializeCanvasDisplaySize();
         this.calculateScaleFactors();
@@ -708,7 +703,22 @@ class DrawingController {
 
     calculatePhysicalDimensions() {
         // 物理的なアスペクト比を計算
-        this.physicalAspectRatio = this.config.physicalDimensions.width / this.config.physicalDimensions.height;
+        this.matAspectRatio = this.config.physicalDimensions.width / this.config.physicalDimensions.height;
+    }
+
+    calculateCanvasArea() {
+        const canvasArea = document.getElementById('canvas-area');
+        const computedStyle = window.getComputedStyle(canvasArea);
+
+        // marginとpaddingを除いた実際の利用可能なサイズを計算
+        this.canvasAreaDimensions = {
+            width: canvasArea.clientWidth -
+                parseFloat(computedStyle.paddingLeft) -
+                parseFloat(computedStyle.paddingRight),
+            height: canvasArea.clientHeight -
+                parseFloat(computedStyle.paddingTop) -
+                parseFloat(computedStyle.paddingBottom)
+        };
     }
 
     initializeCanvasBufferSize() {
@@ -730,8 +740,8 @@ class DrawingController {
 
         // 描画バッファーのデフォルトサイズを設定
         this.bufferDimensions = {
-            width: this.config.display.targetWidth,
-            height: this.config.display.targetWidth / this.physicalAspectRatio
+            width: 1920,
+            height: 1080
         };
 
         // 現在のバッファーサイズを保持（スケーリング等で使用）
@@ -742,11 +752,19 @@ class DrawingController {
     }
 
     initializeCanvasDisplaySize() {
+        // 利用可能な最大サイズを計算
+        let displayWidth = this.canvasAreaDimensions.width;
+        let displayHeight = displayWidth / this.matAspectRatio;
+
+        // 高さが領域を超える場合は、高さに合わせて調整
+        if (displayHeight > this.canvasAreaDimensions.height) {
+            displayHeight = this.canvasAreaDimensions.height;
+            displayWidth = displayHeight * matAspectRatio;
+        }
+
         this.displayDimensions = {
-            // 画面上で表示したい幅から表示幅を直接設定
-            width: this.config.display.targetWidth,
-            // 物理的なアスペクト比を維持して高さを計算
-            height: this.config.display.targetWidth / this.physicalAspectRatio
+            width: displayWidth,
+            height: displayHeight
         };
     }
 
@@ -766,8 +784,21 @@ class DrawingController {
             canvas.height = this.currentBufferSize.height;
 
             // CSS表示サイズの設定（画面上での見た目のサイズ）
-            // canvas.style.width = `${this.displayDimensions.width}px`;
-            // canvas.style.height = `${this.displayDimensions.height}px`;
+            canvas.style.width = `${this.displayDimensions.width}px`;
+            canvas.style.height = `${this.displayDimensions.height}px`;
+            // marginを0に設定
+            canvas.style.margin = '0';
+
+            // コンテキストの設定
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            // canvas-areaのスタイルも調整
+            const canvasArea = document.getElementById('canvas-area');
+            canvasArea.style.display = 'flex';
+            canvasArea.style.justifyContent = 'center';
+            canvasArea.style.alignItems = 'center';
         });
     }
 
@@ -1052,41 +1083,42 @@ class ImageController {
 
     //１．サイズ計算
     calculateDimensions(img) {
-        const toioMatWidth = this.drawingController.toioCoordinateSpaceWidth;
-        const toioMatHeight = this.drawingController.toioCoordinateSpaceHeight;
+        const matAspectRatio = this.drawingController.matAspectRatio;
 
-        // canvasエリアと画像のスケールを計算
-        const scale = Math.min(
-            this.canvasArea.clientWidth / img.naturalWidth,
-            this.canvasArea.clientHeight / img.naturalHeight
-        );
+        // canvas-areaの利用可能なサイズを取得
+        const computedStyle = window.getComputedStyle(this.canvasArea);
+        const availableWidth = this.canvasArea.clientWidth -
+            parseFloat(computedStyle.paddingLeft) -
+            parseFloat(computedStyle.paddingRight);
+        const availableHeight = this.canvasArea.clientHeight -
+            parseFloat(computedStyle.paddingTop) -
+            parseFloat(computedStyle.paddingBottom);
 
-        // 画像の縮小後のサイズを計算
-        const scaledWidth = img.naturalWidth * scale;
-        const scaledHeight = img.naturalHeight * scale;
+        // toioマットのアスペクト比を維持しながら最大サイズを計算
+        let displayWidth = availableWidth;
+        let displayHeight = displayWidth / matAspectRatio;
 
-        // toioマットの比率を維持するためのスケール
-        const toioMatScale = Math.min(
-            scaledWidth / toioMatWidth,
-            scaledHeight / toioMatHeight
-        );
+        // 高さが領域を超える場合は、高さに合わせて調整
+        if (displayHeight > availableHeight) {
+            displayHeight = availableHeight;
+            displayWidth = displayHeight * matAspectRatio;
+        }
 
         return {
-            width: toioMatWidth * toioMatScale,
-            height: toioMatHeight * toioMatScale
+            width: displayWidth,
+            height: displayHeight
         };
     }
 
     //２．キャンバス更新
     updateCanvasDimensions(dimensions) {
-        // 両方のキャンバスのサイズを更新
-        [this.imageCanvas, this.drawCanvas].forEach(canvas => {
-            canvas.width = dimensions.width;
-            canvas.height = dimensions.height;
-        });
+        // DrawingControllerのCanvas設定メソッドを利用
+        this.drawingController.displayDimensions = dimensions;
+        this.drawingController.initializeCanvasSettings();
 
         // 描画キャンバスをクリア
-        this.imageCtx.clearRect(0, 0, dimensions.width, dimensions.height);
+        this.imageCtx.clearRect(0, 0, this.imageCanvas.width, this.imageCanvas.height);
+        this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
     }
 
     //３．画像の描画
@@ -1104,16 +1136,17 @@ class ImageController {
         // ファイル入力をリセット
         this.uploadInput.value = '';
 
-        // キャンバスをクリア
-        this.imageCtx.clearRect(0, 0, this.imageCanvas.width, this.imageCanvas.height);
-
         // キャンバスサイズを初期設定に戻す
         this.drawingController.resetCanvasSize();
+
+        // キャンバスをクリア
+        this.drawingController.handleCanvasClear();
 
         // 画像描画フラグをリセット
         this.drawingController.isImageDrawn = false;
     }
 }
+
 
 class ReplayController {
     constructor(drawingController, storageController) {
