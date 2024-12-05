@@ -556,10 +556,6 @@ class DrawingController {
                     y: userConfig.matBounds?.bottomRight?.y ?? defaultConfig.matBounds.bottomRight.y
                 }
             },
-            canvas: {
-                width: userConfig.canvas?.width ?? defaultConfig.canvas.width,
-                height: userConfig.canvas?.height ?? defaultConfig.canvas.height
-            },
             positionReg: {
                 x: userConfig.positionReg?.x ?? defaultConfig.positionReg.x,
                 y: userConfig.positionReg?.y ?? defaultConfig.positionReg.y
