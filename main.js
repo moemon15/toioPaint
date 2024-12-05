@@ -694,8 +694,8 @@ class DrawingController {
     initializeCanvasSettings() {
         this.calculateCoordinateSpaceDimensions();
         this.calculatePhysicalDimensions();
-        this.initializeCanvasDisplaySize();
         this.initializeCanvasBufferSize();
+        this.initializeCanvasDisplaySize();
         this.calculateScaleFactors();
         this.applyCanvasSettings();
     }
@@ -709,15 +709,6 @@ class DrawingController {
     calculatePhysicalDimensions() {
         // 物理的なアスペクト比を計算
         this.physicalAspectRatio = this.config.physicalDimensions.width / this.config.physicalDimensions.height;
-    }
-
-    initializeCanvasDisplaySize() {
-        this.displayDimensions = {
-            // 画面上で表示したい幅から表示幅を直接設定
-            width: this.config.display.targetWidth,
-            // 物理的なアスペクト比を維持して高さを計算
-            height: this.config.display.targetWidth / this.physicalAspectRatio
-        };
     }
 
     initializeCanvasBufferSize() {
@@ -739,14 +730,23 @@ class DrawingController {
 
         // 描画バッファーのデフォルトサイズを設定
         this.bufferDimensions = {
-            width: this.displayDimensions.width,
-            height: this.displayDimensions.height
+            width: this.config.display.targetWidth,
+            height: this.config.display.targetWidth / this.physicalAspectRatio
         };
 
         // 現在のバッファーサイズを保持（スケーリング等で使用）
         this.currentBufferSize = {
             width: this.bufferDimensions.width,
             height: this.bufferDimensions.height
+        };
+    }
+
+    initializeCanvasDisplaySize() {
+        this.displayDimensions = {
+            // 画面上で表示したい幅から表示幅を直接設定
+            width: this.config.display.targetWidth,
+            // 物理的なアスペクト比を維持して高さを計算
+            height: this.config.display.targetWidth / this.physicalAspectRatio
         };
     }
 
