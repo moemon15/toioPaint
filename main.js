@@ -794,13 +794,6 @@ class DrawingController {
         });
     }
 
-    // toio座標をCanvas座標に変換するメソッド
-    toioToCanvasCoords(x, y) {
-        const canvasX = (x + this.config.positionReg.x) * this.scaleX;
-        const canvasY = (y + this.config.positionReg.y) * this.scaleY;
-        return { x: canvasX, y: canvasY };
-    }
-
     // Canvasを初期設定に戻す
     resetCanvasSize = () => {
         // バッファーサイズを初期値に戻す
@@ -1149,6 +1142,10 @@ class ReplayController {
         this.isReplaying = false;
         this.storageData = [];
 
+        this.initializeSliderEvents();
+    }
+
+    initializeSliderEvents() {
         this.slider.oninput = () => {
             if (!this.isReplaying) {
                 this.drawPoints(parseInt(this.slider.value, 10));
@@ -1164,6 +1161,12 @@ class ReplayController {
     drawStoragePoints = (deviceName) => {
         this.storageData = this.storageController.getData(deviceName);
 
+        if (!this.storageData || this.storageData.length === 0) {
+            console.warn('No replay data available for device:', deviceName);
+            return;
+        }
+
+        console.log('Loading replay data:', this.storageData.length, 'points');
         this.updateSlider(this.storageData.length);
         this.drawPoints(parseInt(this.slider.value, 10));
     }
@@ -1175,6 +1178,11 @@ class ReplayController {
     }
 
     startReplay = () => {
+        if (!this.storageData || this.storageData.length === 0) {
+            console.warn('No data to replay');
+            return;
+        }
+
         let index = parseInt(this.slider.value, 10);
         this.isReplaying = true;
 
@@ -1219,21 +1227,33 @@ class ReplayController {
         }
     }
 
-    ReplayDraw = (fromInfo, toInfo) => {
-        const { x: fromX, y: fromY } = this.drawingController.toioToCanvasCoords(fromInfo.x, fromInfo.y);
-        const { x: toX, y: toY } = this.drawingController.toioToCanvasCoords(toInfo.x, toInfo.y);
+    ReplayDraw = (fromPoint, toPoint) => {
+        const fromCoords = this.drawingController.convertCoordinates({
+            x: fromPoint.x,
+            y: fromPoint.y,
+            sensorX: fromPoint.sensorX,
+            sensorY: fromPoint.sensorY
+        });
 
-        this.drawingController.drawCtx.beginPath();
-        this.drawingController.drawCtx.strokeStyle = toInfo.color || this.drawingController.color;
-        this.drawingController.drawCtx.globalAlpha = toInfo.alpha || this.drawingController.alpha;
-        this.drawingController.drawCtx.lineWidth = toInfo.lineWidth || this.drawingController.lineWidth;
+        const toCoords = this.drawingController.convertCoordinates({
+            x: toPoint.x,
+            y: toPoint.y,
+            sensorX: toPoint.sensorX,
+            sensorY: toPoint.sensorY
+        });
 
-        this.drawingController.drawCtx.moveTo(fromX, fromY);
-        this.drawingController.drawCtx.lineTo(toX, toY);
-        this.drawingController.drawCtx.lineCap = 'round';
+        const ctx = this.drawingController.drawCtx;
+        ctx.beginPath();
+        ctx.moveTo(fromCoords.toX, fromCoords.toY);
+        ctx.lineTo(toCoords.toX, toCoords.toY);
+
+        ctx.strokeStyle = toPoint.color || '#000000';
+        ctx.globalAlpha = toPoint.alpha || 1;
+        ctx.lineWidth = toPoint.lineWidth || 3;
+        ctx.lineCap = 'round';
 
 
-        this.drawingController.drawCtx.stroke();
+        ctx.stroke();
     }
 
 }
