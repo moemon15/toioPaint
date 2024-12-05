@@ -863,14 +863,14 @@ class DrawingController {
             const imageData = this.imageCtx.getImageData(toX, toY, 1, 1).data;
             // 履歴として保持
             this.state.addToHistory('imagePixelData', imageData);
-            // console.log(`画像ピクセル (${toX}, ${toY}):`, imagePixelData);
+            console.log(`画像ピクセル (${toX}, ${toY}):`, imageData);
         }
 
         // drawCtxピクセルデータの取得
         const drawData = this.drawCtx.getImageData(toX, toY, 1, 1).data;
         // 履歴として保持
         this.state.addToHistory('drawPixelData', drawData);
-        // console.log(`描画ピクセル (${toX}, ${toY}):`, drawPixelData);
+        console.log(`描画ピクセル (${toX}, ${toY}):`, drawData);
     }
 
     //描画実行処理　親要素
