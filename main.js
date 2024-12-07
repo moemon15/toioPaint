@@ -714,29 +714,13 @@ class DrawingController {
     }
 
     initializeCanvasBufferSize() {
-        /*
-        ==============================
-        デフォルト値の保持について
-
-        現状は
-        デフォルト値と現在値が常に同じになっている
-        defaultCanvasWidth/HeightとcanvasWidth/Heightの値が常に一致
-        画像のアップロード時にresetCanvasSize()が呼ばれるが、実質的に現在の値を再設定しているだけ
-
-        将来的に以下のような機能を追加する場合に使用する
-        ・キャンバスのサイズを動的に変更する機能がある
-        ・複数のプリセットサイズを切り替える
-        ・ズーム機能を実装する
-        ==============================
-        */
-
         // 描画バッファーのデフォルトサイズを設定
         this.bufferDimensions = {
             width: 1920,
             height: 1080
         };
 
-        // 現在のバッファーサイズを保持（スケーリング等で使用）
+        // 現在のバッファーサイズを保持
         this.currentBufferSize = {
             width: this.bufferDimensions.width,
             height: this.bufferDimensions.height
@@ -848,14 +832,14 @@ class DrawingController {
             const imageData = this.imageCtx.getImageData(toX, toY, 1, 1).data;
             // 履歴として保持
             this.state.addToHistory('imagePixelData', imageData);
-            console.log(`画像ピクセル (${toX}, ${toY}):`, imageData);
+            // console.log(`画像ピクセル (${toX}, ${toY}):`, imageData);
         }
 
         // drawCtxピクセルデータの取得
         const drawData = this.drawCtx.getImageData(toX, toY, 1, 1).data;
         // 履歴として保持
         this.state.addToHistory('drawPixelData', drawData);
-        console.log(`描画ピクセル (${toX}, ${toY}):`, drawData);
+        // console.log(`描画ピクセル (${toX}, ${toY}):`, drawData);
     }
 
     //描画実行処理　親要素
@@ -868,13 +852,10 @@ class DrawingController {
             this.state.updatePosition(toX, toY);
             return;
         }
-
         // パスの設定
         this.setupDrawPath(currentPosition.x, currentPosition.y, toX, toY);
-
         // 描画スタイルの設定
         this.applyDrawingStyle();
-
         // 描画の実行
         this.drawCtx.stroke();
     }
