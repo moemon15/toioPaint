@@ -665,7 +665,6 @@ class DrawingController {
                 this.drawFinish();
             }
         });
-
     }
 
     initializeStateChangeListener() {
