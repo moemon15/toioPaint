@@ -457,12 +457,6 @@ class PositionController {
 */
 
 /**
- * @typedef {Object} CanvasConfig
- * @property {number} width - キャンバスの幅
- * @property {number} height - キャンバスの高さ
-*/
-
-/**
  * @typedef {Object} PositionReg
  * @property {number} x - X座標のオフセット
  * @property {number} y - Y座標のオフセット
@@ -482,18 +476,11 @@ class PositionController {
 */
 
 /**
- * @typedef {Object} Display
- * @property {number} targetWidth - 画面上で表示したい幅（ピクセル）
-*/
-
-/**
  * @typedef {Object} DrawingConfig
  * @property {MatBounds} matBounds - toioマットの境界設定
- * @property {CanvasConfig} canvas - キャンバスの設定
  * @property {PositionReg} positionReg - 位置補正値
  * @property {CoordinateType} coordinateType - 使用する座標タイプ
  * @property {PhysicalDimensions} physicalDimensions - 物理的なサイズ設定
- * @property {Display} display - 表示設定
 */
 
 const DEFAULT_CONFIG = {
