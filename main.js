@@ -300,25 +300,9 @@ class PositionController {
         if (dataView.getUint8(0) === 0x03) {
             console.log('座標を取得できません');
 
-            // DrawingControllerのinit()に処理内容記述あり
+            // DrawingControllerのに処理内容記述あり
             document.dispatchEvent(new CustomEvent('positionMissed', {
             }));
-
-            const deviceName = event.target.service.device.name;
-
-            // キャッシュを更新
-            if (this.storageController.dataCache && this.storageController.dataCache[deviceName] && this.storageController.dataCache[deviceName].length > 0) {
-                const lastPosition = this.storageController.dataCache[deviceName][this.storageController.dataCache[deviceName].length - 1];
-                lastPosition.isEndOfLine = true;
-            }
-
-            const storagedData = this.storageController.getData(deviceName) || [];
-
-            if (storagedData.length > 0) {
-                const lastPosition = storagedData[storagedData.length - 1];
-                lastPosition.isEndOfLine = true;
-                this.storageController.saveData(deviceName, storagedData);
-            }
         }
     }
 
@@ -364,25 +348,15 @@ class PositionController {
             //toioの座標が更新されたらdrawメソッドを実行
             //drawingControllerクラスのregisterEventListeners()メソッドに定義
             const positionUpdatedEvent = new CustomEvent('positionUpdated', {
-                detail: this.toioPosition
+                detail: {
+                    ...this.toioPosition,
+                    deviceInfo: {
+                        deviceName: deviceName,
+                        deviceId: deviceId
+                    }
+                }
             });
             document.dispatchEvent(positionUpdatedEvent);
-
-            //ローカルストレージに保存
-            const positionData = {
-                'deviceName': deviceName,
-                'deviceId': deviceId,
-                'x': this.toioPosition.x,
-                'y': this.toioPosition.y,
-                'angle': this.toioPosition.angle,
-                'sensorX': this.toioPosition.sensorX,
-                'sensorY': this.toioPosition.sensorY,
-                'sensorAngle': this.toioPosition.sensorAngle,
-                'isEndOfLine': false
-            }
-
-            // データストアを抽象化
-            this.storageController.storePositionData(deviceName, positionData);
 
             this.positionDisplayX.textContent = this.toioPosition.x;
             this.positionDisplayY.textContent = this.toioPosition.y;
@@ -579,7 +553,7 @@ class DrawingController {
         // 描画処理
         document.getElementById('startDrawingButton').addEventListener('click', this.handleDrawingStart.bind(this));
         document.getElementById('stopDrawingButton').addEventListener('click', this.handleDrawingStop.bind(this));
-        document.getElementById('clearButton').addEventListener('click', this.handleCanvasClear.bind(this));
+        document.getElementById('clearButton').addEventListener('click', this.requestCanvasClear.bind(this));
     }
 
     handleDrawingStart() {
@@ -594,10 +568,9 @@ class DrawingController {
         this.state.setDrawingActive(false);
     }
 
-    handleCanvasClear() {
+    requestCanvasClear() {
         // console.log('Canvasクリアボタンがクリックされました');
-        this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
-        this.state.reset();
+        this.state.CanvasClear();
     }
 
     initializeUIEventListeners() {
@@ -641,7 +614,9 @@ class DrawingController {
         //decodePositionDataContinuousメソッドで発火
         document.addEventListener('positionUpdated', (event) => {
             if (this.state.flags.isDrawingActive) {
-                this.draw(event.detail);
+                const { deviceInfo, ...position } = event.detail;
+                this.state.setDeviceInfo(deviceInfo.deviceName, deviceInfo.deviceId);
+                this.state.updatePosition(position);
             }
         });
 
@@ -649,15 +624,15 @@ class DrawingController {
         //PositionContorollerのPositionMissedメソッドで発火
         document.addEventListener('positionMissed', (event) => {
             if (this.state.flags.isDrawingActive) {
-                this.drawFinish();
+                this.state.handleDrawFinish();
             }
         });
     }
 
     initializeStateChangeListener() {
         document.addEventListener('drawingStateChange', (event) => {
-            const { type, data } = event.detail;
-            this.handleStateChange(type, data);
+            const { type, data, deviceInfo } = event.detail;
+            this.handleStateChange(type, data, deviceInfo);
         });
     }
 
@@ -782,32 +757,91 @@ class DrawingController {
     ==============================
     */
 
-    /* メインの描画メソッド */
-    draw(info) {
-        try {
-            //１．座標変換
-            const coords = this.convertCoordinates(info);
-            //２．ピクセルデータの取得と保存
-            this.caputurePixelData(coords);
-            //３．描画の実行
-            this.performDrow(coords);
-            //４．現在の座標を保存
-            this.state.updatePosition(coords.toX, coords.toY);
-        } catch (error) {
-            console.error('描画処理でエラーが発生しました:', error);
+    // 状態変更ハンドラ
+    handleStateChange(type, data, deviceInfo) {
+        switch (type) {
+            case 'drawingActive':
+                this.handleDrawingActiveChange(data);
+                break;
+
+            case 'position':
+                this.handlePositionChange(data);
+                console.log('position:', data);
+                break;
+
+            case 'penSettings':
+                this.handlePenSettingsChange(data, deviceInfo);
+                console.log('penSettings:', data);
+                break;
+
+            case 'drawFinish':
+                this.handleDrawFinishChange(data, deviceInfo);
+                console.log('drawFinish:', data);
+                break;
+
+            case 'clearCanvas':
+                this.handleClearCanvas();
+                break;
         }
     }
 
-    convertCoordinates(info) {
+    handleDrawingActiveChange(isActive) {
+        if (isActive) {
+            this.positionController.startReadingPosition();
+        } else {
+            this.positionController.stopReadingPosition();
+            if (this.state.position.current.x) {
+                this.state.handleDrawFinish();
+            }
+        }
+    }
+
+    handlePositionChange(data) {
+        const { previous, current, isEndOfLine } = data;
+
+        if (!current.x || isEndOfLine) {
+            return;
+        }
+
+        // 座標変換
+        const currentCoords = this.convertCoordinates(current);
+
+        // 初回描画時は現在の位置を開始点とする
+        if (!previous.x) {
+            return;
+        }
+
+        // 前回の座標も変換
+        const previousCoords = this.convertCoordinates(previous);
+
+        // 描画の実行
+        this.performDraw(previousCoords, currentCoords);
+
+        // 位置データの保存
+        if (this.state.deviceInfo?.deviceName) {
+            this.storageController.storePositionData(
+                this.state.deviceInfo.deviceName,
+                {
+                    ...current,
+                    isEndOfLine,
+                    deviceId: this.state.deviceInfo.deviceId
+                }
+            );
+        } else {
+            console.log('デバイス名が設定されていません');
+        }
+    }
+
+    convertCoordinates(position) {
         const coords = this.config.coordinateType === 'sensor'
-            ? { x: info.sensorX, y: info.sensorY }
-            : { x: info.x, y: info.y };
+            ? { x: position.sensorX, y: position.sensorY }
+            : { x: position.x, y: position.y };
 
         //toio座標をCanvas座標に変換
-        const toX = (coords.x + this.config.positionReg.x) * this.scaleX;
-        const toY = (coords.y + this.config.positionReg.y) * this.scaleY;
-
-        return { toX, toY };
+        return {
+            x: (coords.x + this.config.positionReg.x) * this.scaleX,
+            y: (coords.y + this.config.positionReg.y) * this.scaleY
+        }
     }
 
     caputurePixelData(coords) {
@@ -828,70 +862,68 @@ class DrawingController {
         // console.log(`描画ピクセル (${toX}, ${toY}):`, drawData);
     }
 
-    //描画実行処理　親要素
-    performDrow(coords) {
-        const { toX, toY } = coords;
-        const currentPosition = this.state.position;
-
-        // 初回描画時は現在の位置を開始点とする
-        if (currentPosition.x === null || currentPosition.y === null) {
-            this.state.updatePosition(toX, toY);
-            return;
-        }
+    //描画実行処理
+    performDraw(from, to) {
         // パスの設定
-        this.setupDrawPath(currentPosition.x, currentPosition.y, toX, toY);
-        // 描画スタイルの設定
-        this.applyDrawingStyle();
+        this.drawCtx.beginPath();
+        this.drawCtx.moveTo(from.x, from.y);
+        this.drawCtx.lineTo(to.x, to.y);
+        this.drawCtx.lineCap = 'round';
+
         // 描画の実行
         this.drawCtx.stroke();
     }
 
-    // 描画パスの設定
-    setupDrawPath(fromX, fromY, toX, toY) {
-        this.drawCtx.beginPath();
-        this.drawCtx.moveTo(fromX, fromY);
-        this.drawCtx.lineTo(toX, toY);
-        this.drawCtx.lineCap = 'round';
-    }
+    handlePenSettingsChange(data) {
+        const { current } = data;
 
-    // 描画スタイルの適用
-    applyDrawingStyle() {
-        const { color, alpha, lineWidth, mode } = this.state.penSettings;
-
-        this.drawCtx.lineWidth = lineWidth;
-        if (mode === 'pen') {
-            this.drawCtx.strokeStyle = color;
-            this.drawCtx.globalAlpha = alpha;
+        // 描画スタイルの更新
+        this.drawCtx.lineWidth = current.lineWidth;
+        if (current.mode === 'pen') {
+            this.drawCtx.strokeStyle = current.color;
+            this.drawCtx.globalAlpha = current.alpha;
         } else {
             this.drawCtx.strokeStyle = 'white';
             this.drawCtx.globalAlpha = 1;
         }
+
+        // StorageControllerの更新
+        this.storageController.updateDrawingState(
+            current.mode,
+            current.color,
+            current.alpha,
+            current.lineWidth
+        );
     }
 
-    // toioから座標が取れなくなったら、座標をリセット
-    drawFinish() {
-        this.drawCtx.closePath();
-        // 状態をリセット
-        this.state.updatePosition(null, null);
-    }
+    handleDrawFinishChange(data) {
+        const { previous, isEndOfLine } = data;
+        console.log('isEndOfLine:', isEndOfLine);
 
-    // 状態変更ハンドラ
-    handleStateChange(type, data) {
-        switch (type) {
-            case 'penSettings':
-                this.storageController.updateDrawingState(
-                    data.color,
-                    data.alpha,
-                    data.lineWidth
+        if (previous.x && isEndOfLine) {
+            // パスを閉じる
+            this.drawCtx.closePath();
+
+            // StorageControllerに終了点をマーク
+            if (this.state.deviceInfo.deviceName) {
+                this.storageController.updateLastEntry(
+                    this.state.deviceInfo.deviceName,
+                    { isEndOfLine: true }
                 );
-                break;
-            // 他の状態変更ハンドリング
+            }
         }
+    }
+
+    // キャンバスクリア処理の実行
+    handleClearCanvas() {
+        this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
     }
 }
 
 class DrawingState {
-    constructor() {
+    constructor(storageController) {
+        this.storageController = storageController;
+
         // 描画フラグの状態
         this.flags = {
             isDrawingActive: false,
@@ -908,8 +940,20 @@ class DrawingState {
 
         // 座標状態
         this.position = {
-            x: null,
-            y: null
+            current: {
+                x: null,
+                y: null,
+                angle: null,
+                sensorX: null,
+                sensorY: null,
+                sensorAngle: null
+            },
+            isEndOfLine: false
+        };
+
+        this.deviceInfo = {
+            deviceName: null,
+            deviceId: null
         };
 
         // ピクセルデータの履歴
@@ -918,14 +962,12 @@ class DrawingState {
             drawPixelData: []
         };
 
-        // キャンバスの状態
-        this.canvasState = {
-            width: null,
-            height: null,
-            scale: 1
-        };
-
         this.notifyStateChange('initialized', this.getSnapshot());
+    }
+
+    setDeviceInfo(deviceName, deviceId) {
+        this.deviceInfo = { deviceName, deviceId };
+        this.notifyStateChange('deviceInfo', this.deviceInfo);
     }
 
     setDrawingActive(isActive) {
@@ -939,14 +981,78 @@ class DrawingState {
     }
 
     updatePenSettings(settings) {
+        const previousSettings = { ...this.penSettings };
         Object.assign(this.penSettings, settings);
-        this.notifyStateChange('penSettings', this.penSettings);
+
+        this.notifyStateChange('penSettings', {
+            previous: previousSettings,
+            current: this.penSettings
+        });
     }
 
-    updatePosition(x, y) {
-        this.position.x = x;
-        this.position.y = y;
-        this.notifyStateChange('position', this.position);
+    updatePosition(positionData) {
+        const previousPosition = { ...this.position.current };
+
+        // 新しい位置データの更新
+        if (positionData && positionData.x !== undefined) {
+            this.position.current = {
+                x: positionData.x,
+                y: positionData.y,
+                angle: positionData.angle,
+                sensorX: positionData.sensorX,
+                sensorY: positionData.sensorY,
+                sensorAngle: positionData.sensorAngle
+            };
+            this.position.isEndOfLine = false;
+        }
+
+        this.notifyStateChange('position', {
+            previous: previousPosition,
+            current: this.position.current,
+            isEndOfLine: this.position.isEndOfLine
+        });
+    }
+
+    handleDrawFinish() {
+        const previousPosition = { ...this.position.current };
+        this.position.isEndOfLine = true;
+
+        // 位置状態のリセット
+        this.position.current = {
+            x: null,
+            y: null,
+            angle: null,
+            sensorX: null,
+            sensorY: null,
+            sensorAngle: null
+        };
+
+        this.notifyStateChange('drawFinish', {
+            previous: previousPosition,
+            current: this.position.current,
+            isEndOfLine: true
+        });
+    }
+
+    CanvasClear() {
+        const previousState = this.getSnapshot();
+
+        this.position = {
+            current: {
+                x: null,
+                y: null,
+                angle: null,
+                sensorX: null,
+                sensorY: null,
+                sensorAngle: null
+            },
+            isEndOfLine: false
+        };
+
+        this.notifyStateChange('clearCanvas', {
+            previous: previousState,
+            current: this.getSnapshot()
+        });
     }
 
     addToHistory(type, data) {
@@ -954,28 +1060,28 @@ class DrawingState {
         this.notifyStateChange('history', { type, data });
     }
 
-    notifyStateChange(type, data) {
-        const event = new CustomEvent('drawingStateChange', {
-            detail: { type, data }
-        });
-        document.dispatchEvent(event);
-    }
-
-    reset() {
-        this.position.x = null;
-        this.position.y = null;
-        this.history.imagePixelData = [];
-        this.history.drawPixelData = [];
-        this.notifyStateChange('reset', null);
-    }
-
     getSnapshot() {
         return {
             flags: { ...this.flags },
             penSettings: { ...this.penSettings },
-            position: { ...this.position },
-            canvasState: { ...this.canvasState }
+            position: {
+                current: { ...this.position.current },
+                isEndOfLine: this.position.isEndOfLine
+            },
+            deviceInfo: { ...this.deviceInfo }
         };
+    }
+
+    notifyStateChange(type, data) {
+        const event = new CustomEvent('drawingStateChange', {
+            detail: {
+                type,
+                data,
+                deviceInfo: this.deviceInfo,
+                timestamp: Date.now()
+            }
+        });
+        document.dispatchEvent(event);
     }
 }
 
@@ -1127,6 +1233,7 @@ class ReplayController {
 
     drawStoragePoints = (deviceName) => {
         this.storageData = this.storageController.getData(deviceName);
+        console.log('Loaded replay data:', this.storageData);
 
         if (!this.storageData || this.storageData.length === 0) {
             console.warn('No replay data available for device:', deviceName);
@@ -1153,7 +1260,7 @@ class ReplayController {
         let index = parseInt(this.slider.value, 10);
         this.isReplaying = true;
 
-        this.drawingController.handleCanvasClear();
+        this.drawingController.handleClearCanvas();
 
         clearInterval(this.replayInterval);
         this.replayInterval = setInterval(() => {
@@ -1180,15 +1287,18 @@ class ReplayController {
     }
 
     drawPoints = (index) => {
-        this.drawingController.handleCanvasClear();
+        this.drawingController.handleClearCanvas();
 
         for (let i = 0; i <= index; i++) {
-            const point = this.storageData[i];
-            if (i > 0 && !this.storageData[i - 1].isEndOfLine) {
-                this.ReplayDraw(this.storageData[i - 1], point);
+            const currentData = this.storageData[i];
+            if (!currentData) continue;
+
+            if (i > 0 && !this.storageData[i - 1]?.metadata?.isEndOfLine) {
+                const previousData = this.storageData[i - 1];
+                this.ReplayDraw(previousData, currentData);
             }
 
-            if (point.isEndOfLine) {
+            if (currentData.metadata?.isEndOfLine) {
                 this.replayDrawFinish();
             }
         }
@@ -1196,27 +1306,27 @@ class ReplayController {
 
     ReplayDraw = (fromPoint, toPoint) => {
         const fromCoords = this.drawingController.convertCoordinates({
-            x: fromPoint.x,
-            y: fromPoint.y,
-            sensorX: fromPoint.sensorX,
-            sensorY: fromPoint.sensorY
+            x: fromPoint.position.x,
+            y: fromPoint.position.y,
+            sensorX: fromPoint.position.sensorX,
+            sensorY: fromPoint.position.sensorY
         });
 
         const toCoords = this.drawingController.convertCoordinates({
-            x: toPoint.x,
-            y: toPoint.y,
-            sensorX: toPoint.sensorX,
-            sensorY: toPoint.sensorY
+            x: toPoint.position.x,
+            y: toPoint.position.y,
+            sensorX: toPoint.position.sensorX,
+            sensorY: toPoint.position.sensorY
         });
 
         const ctx = this.drawingController.drawCtx;
         ctx.beginPath();
-        ctx.moveTo(fromCoords.toX, fromCoords.toY);
-        ctx.lineTo(toCoords.toX, toCoords.toY);
+        ctx.moveTo(fromCoords.x, fromCoords.y);
+        ctx.lineTo(toCoords.x, toCoords.y);
 
-        ctx.strokeStyle = toPoint.color || '#000000';
-        ctx.globalAlpha = toPoint.alpha || 1;
-        ctx.lineWidth = toPoint.lineWidth || 3;
+        ctx.strokeStyle = toPoint.penSettings?.color || '#000000';
+        ctx.globalAlpha = toPoint.penSettings?.alpha || 1;
+        ctx.lineWidth = toPoint.penSettings?.lineWidth || 3;
         ctx.lineCap = 'round';
 
 
@@ -1225,52 +1335,253 @@ class ReplayController {
 
 }
 
+/**
+ * ストレージのデータ構造を定義するスキーマ
+ */
+const STORAGE_SCHEMA = {
+    // 位置情報
+    position: {
+        enabled: true,
+        required: true,
+        properties: ['x', 'y', 'angle', 'sensorX', 'sensorY', 'sensorAngle']
+    },
+
+    // ペン設定
+    penSettings: {
+        enabled: true,
+        required: true,
+        properties: ['mode', 'color', 'alpha', 'lineWidth']
+    },
+
+    // デバイス情報
+    deviceInfo: {
+        enabled: true,
+        required: true,
+        properties: ['deviceName', 'deviceId']
+    },
+
+    // メタデータ
+    metadata: {
+        enabled: true,
+        required: true,
+        properties: ['timestamp', 'sessionId', 'isEndOfLine', 'isClearedCanvas']
+    }
+};
+
 class StorageController {
     constructor() {
         this.storage = localStorage;
-        this.dataCache = {};
+        this.cache = new Map();
+
+        // キャッシュ設定
+        this.cacheConfig = {
+            flushInterval: 5000,    // キャッシュフラッシュ間隔（ミリ秒）
+            maxCacheSize: 1000      // デバイスごとの最大キャッシュエントリ数
+        };
 
         this.currentDrawingState = {
+            mode: 'pen',
             color: '#000000',
             alpha: 1,
             lineWidth: 3
         };
+
+        this.sessionId = this.generateSessionId();
+        this.initializeCacheFlush();
     }
 
-    updateDrawingState(color, alpha, lineWidth) {
-        this.currentDrawingState = { color, alpha, lineWidth };
+    /**
+     * セッションIDの生成
+     */
+    generateSessionId() {
+        return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     }
 
+    /**
+     * 位置データの保存
+     */
     storePositionData(deviceName, data) {
-        if (!this.dataCache[deviceName]) this.dataCache[deviceName] = [];
+        try {
+            const formattedData = this.formatData(deviceName, data);
 
-        const graphicProperties = {
-            ...data,
-            ...this.currentDrawingState
-        };
+            this.addToCache(deviceName, formattedData);
+            this.checkCacheSize(deviceName);
 
-        this.dataCache[deviceName].push(graphicProperties);
-
-        if (!this.saveInterval) {
-            this.saveInterval = setInterval(() => {
-                for (const [name, positions] of Object.entries(this.dataCache)) {
-                    const storedData = this.getData(name) || [];
-                    const updatedData = storedData.concat(positions);
-                    this.saveData(name, updatedData);
-                    this.dataCache[name] = [];
-                }
-            }, 5000);
+        } catch (error) {
+            console.error('Data storage error:', error);
         }
     }
 
-    getData(deviceName) {
-        const data = this.storage.getItem(deviceName);
-        return data ? JSON.parse(data) : [];
+    formatData(deviceName, data) {
+        return {
+            position: {
+                x: data.x,
+                y: data.y,
+                angle: data.angle,
+                sensorX: data.sensorX,
+                sensorY: data.sensorY,
+                sensorAngle: data.sensorAngle
+            },
+            penSettings: { ...this.currentDrawingState },
+            deviceInfo: {
+                deviceName,
+                deviceId: data.deviceId
+            },
+            metadata: {
+                timestamp: Date.now(),
+                sessionId: this.sessionId,
+                isEndOfLine: data.isEndOfLine || false,
+                isClearedCanvas: data.isClearedCanvas || false
+            }
+        };
     }
 
-    saveData(deviceName, data) {
-        this.storage.setItem(deviceName, JSON.stringify(data));
+    updateDrawingState(mode, color, alpha, lineWidth) {
+        this.currentDrawingState = {
+            mode,
+            color,
+            alpha,
+            lineWidth,
+        };
     }
+
+    recordCanvasClear() {
+        const clearEvent = {
+            type: 'clear',
+            timestamp: Date.now(),
+            sessionId: this.sessionId
+        };
+    }
+
+    // =================== キャッシュ管理 ===================
+
+    /**
+     * キャッシュへのデータ追加
+     */
+    addToCache(deviceName, data) {
+        if (!this.cache.has(deviceName)) {
+            this.cache.set(deviceName, []);
+        }
+        this.cache.get(deviceName).push(data);
+    }
+
+    /**
+     * キャッシュサイズの確認
+     */
+    checkCacheSize(deviceName) {
+        const deviceCache = this.cache.get(deviceName);
+        if (deviceCache?.length >= this.cacheConfig.maxCacheSize) {
+            this.flushCache(deviceName);
+        }
+    }
+
+    /**
+     * キャッシュのフラッシュ処理
+     */
+    flushCache(deviceName) {
+        const cachedData = this.cache.get(deviceName);
+        if (cachedData?.length > 0) {
+            const storedData = this.getStoredData(deviceName);
+            const mergedData = [...storedData, ...cachedData];
+            this.saveData(deviceName, mergedData);
+            this.cache.set(deviceName, []);
+        }
+    }
+
+    /**
+     * 定期的なキャッシュフラッシュの初期化
+     */
+    initializeCacheFlush() {
+        setInterval(() => {
+            for (const deviceName of this.cache.keys()) {
+                this.flushCache(deviceName);
+            }
+        }, this.cacheConfig.flushInterval);
+    }
+
+    // =================== データアクセス ===================
+
+    /**
+     * データの取得（キャッシュ + ストレージ）
+     */
+    getData(deviceName) {
+        const cachedData = this.cache.get(deviceName) || [];
+        const storedData = this.getStoredData(deviceName);
+        return [...storedData, ...cachedData];
+    }
+
+    /**
+     * ストレージからのデータ取得
+     */
+    getStoredData(deviceName) {
+        try {
+            const data = this.storage.getItem(deviceName);
+            return data ? JSON.parse(data) : [];
+        } catch (error) {
+            console.error('Storage read error:', error);
+            return [];
+        }
+    }
+
+    /**
+     * データの永続化
+     */
+    saveData(deviceName, data) {
+        try {
+            this.storage.setItem(deviceName, JSON.stringify(data));
+        } catch (error) {
+            this.handleStorageError(error);
+        }
+    }
+
+    /**
+     * 最後のエントリの更新
+     */
+    updateLastEntry(deviceName, updateData) {
+        // キャッシュデータの更新
+        const cachedData = this.cache.get(deviceName);
+        if (cachedData?.length > 0) {
+            const lastEntry = cachedData[cachedData.length - 1];
+            lastEntry.metadata.isEndOfLine = Boolean(updateData.isEndOfLine);
+            return;
+        }
+
+        // ストレージデータの更新
+        const storedData = this.getStoredData(deviceName);
+        if (storedData.length > 0) {
+            const lastEntry = storedData[storedData.length - 1];
+            lastEntry.metadata.isEndOfLine = Boolean(updateData.isEndOfLine);
+            this.saveData(deviceName, storedData);
+        }
+    }
+
+    // =================== エラー処理 ===================
+
+    /**
+     * ストレージエラーの処理
+     */
+    handleStorageError(error) {
+        if (error.name === 'QuotaExceededError') {
+            console.warn('Storage quota exceeded. Cleaning up old data...');
+            this.cleanupOldData();
+        } else {
+            console.error('Storage error:', error);
+        }
+    }
+
+    /**
+     * 古いデータのクリーンアップ
+     */
+    cleanupOldData() {
+        for (const key of Object.keys(this.storage)) {
+            const data = this.getStoredData(key);
+            if (data.length > this.cacheConfig.maxCacheSize) {
+                this.saveData(key, data.slice(-this.cacheConfig.maxCacheSize));
+            }
+        }
+    }
+
+    // =================== UI関連の機能 ===================
 
     displayLocalStorageKeys(replayController, canvasToToio) {
         const localStorageKeys = Object.keys(this.storage);
@@ -1385,6 +1696,8 @@ class StorageController {
             detailsElement.style.display = 'none';
         }
     }
+
+
 }
 
 class ScoringSystem {
