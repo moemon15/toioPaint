@@ -11,6 +11,23 @@
     <link rel="stylesheet" href="./style.css">
 </head>
 
+<!-- モーダル -->
+<div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertModalTitle">エラー</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="alertModalMessage">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <body>
     <div class="container-fluid">
         <nav class="nav">
@@ -59,8 +76,7 @@
                         <div>
                             <button class="button is-success is-light" id="replayDraw-start" type="button">再生</button>
                             <button class="button is-danger is-light" id="replayDraw-stop" type="button">停止</button>
-                            <button class="button is-info is-light" id="calculate-similarity"
-                                type="button">採点</button>
+                            <button class="button is-info is-light" id="calculate-similarity" type="button">採点</button>
                             <button class="button is-info is-light" id="toio-replay-start">toioリプレイ</button>
                         </div>
                     </div>

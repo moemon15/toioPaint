@@ -108,6 +108,12 @@ class BluetoothController {
 
     async disconnect() {
         try {
+            // デバイスが接続されていない場合
+            if (this.devices.size === 0) {
+                window.modalController.show('DISCONNECTION');
+                return;
+            }
+
             for (let [id, deviceInfo] of this.devices) {
                 console.log(`Disconnecting from device: ${deviceInfo.device.name}`);
                 await deviceInfo.device.gatt.disconnect();
@@ -267,7 +273,8 @@ class PositionController {
                 }
             }
         } else {
-            console.log('デバイスが接続されていません');
+            // console.log('デバイスが接続されていません');
+            window.modalController.show();
         }
     }
 
@@ -289,7 +296,8 @@ class PositionController {
                 }
             }
         } else {
-            console.log('デバイスが接続されていません');
+            // console.log('デバイスが接続されていません');
+            window.modalController.show()
         }
     }
 
@@ -759,7 +767,7 @@ class DrawingController {
     handleStateChange(type, data, deviceInfo, timestamp) {
         console.log(`State change: ${type} at ${new Date(timestamp).toISOString()}`);
         console.log('Data:', data);
-        
+
         switch (type) {
             case 'drawingActive':
                 this.handleDrawingActiveChange(data);
@@ -2047,6 +2055,29 @@ class CanvasToToio {
 
 }
 
+class ModalController {
+    constructor() {
+        this.modal = new bootstrap.Modal(document.getElementById('alertModal'));
+        this.modalTitle = document.getElementById('alertModalTitle');
+        this.modalMessage = document.getElementById('alertModalMessage');
+
+        // エラーメッセージの定義
+        this.messages = {
+            CONNECTION: 'デバイスが接続されていません。先にデバイスを接続してください。',
+            DISCONNECTION: 'デバイスが接続されていないため、切断できません。'
+        };
+    }
+
+    show(type = 'CONNECTION') {
+        this.modalMessage.textContent = this.messages[type];
+        this.modal.show();
+    }
+
+    hide() {
+        this.modal.hide();
+    }
+}
+
 /*
 ==============================
 インスタンス
@@ -2065,6 +2096,7 @@ document.addEventListener('DOMContentLoaded', () => {
     storageController.displayLocalStorageKeys(replayController, canvasToToio);
 });
 const scoringSystem = new ScoringSystem();
+window.modalController = new ModalController();
 
 
 
