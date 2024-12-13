@@ -1088,6 +1088,7 @@ class DrawingState {
 class ImageController {
     constructor(drawingController) {
         this.drawingController = drawingController;
+        this.state = this.drawingController.state;
 
         this.uploadInput = document.getElementById('uploadfile');
         this.canvasArea = document.getElementById('canvas-area');
@@ -1133,10 +1134,17 @@ class ImageController {
 
     //画像処理 親要素
     processImage(img) {
+        // 現在のペン設定を保存
+        const currentPenSettings = { ...this.state.penSettings };
+
         const dimensions = this.calculateDimensions(img);
         this.updateCanvasDimensions(dimensions);
         this.drawImage(img);
-        this.drawingController.isImageDrawn = true;
+
+        // ペン設定を復元
+        this.state.updatePenSettings(currentPenSettings);
+        // 画像描画フラグを設定
+        this.state.setImageDrawn(true);
     }
 
     //１．サイズ計算
@@ -1194,14 +1202,21 @@ class ImageController {
         // ファイル入力をリセット
         this.uploadInput.value = '';
 
+        // 画像キャンバスをクリア
+        this.imageCtx.clearRect(0, 0, this.imageCanvas.width, this.imageCanvas.height);
+
         // キャンバスサイズを初期設定に戻す
         this.drawingController.resetCanvasSize();
 
-        // キャンバスをクリア
-        this.drawingController.handleCanvasClear();
+        // 描画キャンバスをクリアするが、ペン設定は維持
+        const currentState = this.state.getSnapshot();  // 現在の状態を保存
+        this.drawingController.handleClearCanvas();
+
+        // ペン設定を復元
+        this.state.updatePenSettings(currentState.penSettings);
 
         // 画像描画フラグをリセット
-        this.drawingController.isImageDrawn = false;
+        this.state.setImageDrawn(false);
     }
 }
 
