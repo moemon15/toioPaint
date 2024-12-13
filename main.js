@@ -480,7 +480,7 @@ class DrawingController {
 
     constructor(config = {}, storageController, positionController) {
         // 状態管理の初期化
-        this.state = new DrawingState();
+        this.state = new DrawingState(this);
 
         // 依存オブジェクトの設定
         this.storageController = storageController;
@@ -545,8 +545,6 @@ class DrawingController {
         this.initializeUIEventListeners();
         // toioの位置更新イベントリスナー
         this.initializePositionEventListeners();
-        // 状態変更リスナーの初期化
-        this.initializeStateChangeListener();
     }
 
     initializeDrawingControlListeners() {
@@ -758,7 +756,10 @@ class DrawingController {
     */
 
     // 状態変更ハンドラ
-    handleStateChange(type, data, deviceInfo) {
+    handleStateChange(type, data, deviceInfo, timestamp) {
+        console.log(`State change: ${type} at ${new Date(timestamp).toISOString()}`);
+        console.log('Data:', data);
+        
         switch (type) {
             case 'drawingActive':
                 this.handleDrawingActiveChange(data);
@@ -766,17 +767,14 @@ class DrawingController {
 
             case 'position':
                 this.handlePositionChange(data);
-                console.log('position:', data);
                 break;
 
             case 'penSettings':
                 this.handlePenSettingsChange(data, deviceInfo);
-                console.log('penSettings:', data);
                 break;
 
             case 'drawFinish':
                 this.handleDrawFinishChange(data, deviceInfo);
-                console.log('drawFinish:', data);
                 break;
 
             case 'clearCanvas':
@@ -921,8 +919,8 @@ class DrawingController {
 }
 
 class DrawingState {
-    constructor(storageController) {
-        this.storageController = storageController;
+    constructor(drawingController) {
+        this.drawingController = drawingController;
 
         // 描画フラグの状態
         this.flags = {
@@ -1073,15 +1071,7 @@ class DrawingState {
     }
 
     notifyStateChange(type, data) {
-        const event = new CustomEvent('drawingStateChange', {
-            detail: {
-                type,
-                data,
-                deviceInfo: this.deviceInfo,
-                timestamp: Date.now()
-            }
-        });
-        document.dispatchEvent(event);
+        this.drawingController.handleStateChange(type, data, this.deviceInfo, Date.now());
     }
 }
 
