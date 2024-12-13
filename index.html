@@ -13,8 +13,11 @@
 
 <body>
     <div class="container-fluid">
-        <nav class="navbar"></nav>
-
+        <nav class="nav">
+            <div class="navbar-content">
+                <!-- ナビバーの内容をここに -->
+            </div>
+        </nav>
         <div class="row">
             <div class="col-8">
                 <div class="card">
@@ -29,8 +32,7 @@
                         <span class="flex-grow-1"></span>
                         <div>
                             <!-- 座標 -->
-                            x：<span id="dispX">0</span>　y：<span id="dispY">0</span>　向き：<span
-                                id="dispAngle">0</span>　拡大率：<span id="dispScale">1</span>
+                            x：<span id="dispX">0</span>　y：<span id="dispY">0</span>　向き：<span id="dispAngle">0</span>
                         </div>
                     </div>
                     <!-- Canvas -->
@@ -58,8 +60,8 @@
                             <button class="button is-success is-light" id="replayDraw-start" type="button">再生</button>
                             <button class="button is-danger is-light" id="replayDraw-stop" type="button">停止</button>
                             <button class="button is-info is-light" id="calculate-similarity"
-                                type="button">一致度計算</button>
-                            <button class="button is-info is-light" id="toio-replay-start">toioリプレイ開始</button>
+                                type="button">採点</button>
+                            <button class="button is-info is-light" id="toio-replay-start">toioリプレイ</button>
                         </div>
                     </div>
                 </div>
@@ -112,7 +114,8 @@
                         <div class="col-md-6 center-content">
                             <div id="transparent-area">
                                 <h5>透過度</h5>
-                                <input class="form-range" id="alpha-slider" type="range" min="0" max="1" step="0.1" value="1">
+                                <input class="form-range" id="alpha-slider" type="range" min="0" max="1" step="0.1"
+                                    value="1">
                                 <span id="alpha">1</span>
                             </div>
                         </div>
@@ -134,7 +137,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- データベース -->
+                <!-- localStorage -->
                 <div class="card-body border rounded localStorage">
                     <h5 class="database">データ</h5>
                     <ul id="localStorageKeys"></ul>
