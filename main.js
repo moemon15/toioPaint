@@ -765,8 +765,8 @@ class DrawingController {
 
     // 状態変更ハンドラ
     handleStateChange(type, data, deviceInfo, timestamp) {
-        console.log(`State change: ${type} at ${new Date(timestamp).toISOString()}`);
-        console.log('Data:', data);
+        // console.log(`State change: ${type} at ${new Date(timestamp).toISOString()}`);
+        // console.log('Data:', data);
 
         switch (type) {
             case 'drawingActive':
