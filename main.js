@@ -1105,22 +1105,10 @@ class ImageController {
 
     handleImageUpload(event) {
         const file = event.target.files[0];
-        if (!this.validateImageFile(file)) return;
 
         const reader = new FileReader();
         reader.onload = (e) => this.handleFileRead(e);
         reader.readAsDataURL(file);
-    }
-
-    // ファイル検証
-    validateImageFile(file) {
-        if (!file) return false;
-
-        if (file.type.indexOf("image") < 0) {
-            alert("画像ファイルを指定してください。");
-            return false;
-        }
-        return true;
     }
 
     //新しいImage要素を生成
@@ -1132,67 +1120,82 @@ class ImageController {
 
     //画像処理 親要素
     processImage(img) {
-        // 現在のペン設定を保存
-        const currentPenSettings = { ...this.state.penSettings };
+        try {
+            // Step 1: 現在のペン設定を保存
+            const currentPenSettings = { ...this.state.penSettings };
 
-        const dimensions = this.calculateDimensions(img);
-        this.updateCanvasDimensions(dimensions);
-        this.drawImage(img);
+            // Step 2: 画像のレイアウトを計算
+            const layout = this.calculateDimensions(img);
 
-        // ペン設定を復元
-        this.state.updatePenSettings(currentPenSettings);
-        // 画像描画フラグを設定
-        this.state.setImageDrawn(true);
+            // Step 3: キャンバスの準備
+            this.prepareCanvas();
+
+            // Step 4: 画像の描画
+            this.drawImage(img, layout);
+
+            // Step 5: ペン設定を復元
+            this.state.updatePenSettings(currentPenSettings);
+
+            // Step 6: 画像描画フラグを更新
+            this.state.setImageDrawn(true);
+        } catch (error) {
+            console.error('画像処理中にエラーが発生しました:', error);
+            // 必要に応じてユーザーへのエラー通知を追加
+        }
     }
 
     //１．サイズ計算
     calculateDimensions(img) {
-        const matAspectRatio = this.drawingController.matAspectRatio;
+        // 基準とするCanvasのサイズを取得
+        const canvasWidth = this.imageCanvas.width;
+        const canvasHeight = this.imageCanvas.height;
 
-        // canvas-areaの利用可能なサイズを取得
-        const computedStyle = window.getComputedStyle(this.canvasArea);
-        const availableWidth = this.canvasArea.clientWidth -
-            parseFloat(computedStyle.paddingLeft) -
-            parseFloat(computedStyle.paddingRight);
-        const availableHeight = this.canvasArea.clientHeight -
-            parseFloat(computedStyle.paddingTop) -
-            parseFloat(computedStyle.paddingBottom);
+        // Canvas と 画像の縦横比を計算
+        const canvasRatio = canvasWidth / canvasHeight;
+        const imageRatio = img.width / img.height;
 
-        // toioマットのアスペクト比を維持しながら最大サイズを計算
-        let displayWidth = availableWidth;
-        let displayHeight = displayWidth / matAspectRatio;
+        let drawWidth, drawHeight;
 
-        // 高さが領域を超える場合は、高さに合わせて調整
-        if (displayHeight > availableHeight) {
-            displayHeight = availableHeight;
-            displayWidth = displayHeight * matAspectRatio;
+        if (canvasRatio > imageRatio) {
+            // Canvasの方が横長の場合
+            drawHeight = canvasHeight;
+            drawWidth = drawHeight * imageRatio;
+        } else {
+            // 画像の方が横長の場合
+            drawWidth = canvasWidth;
+            drawHeight = drawWidth / imageRatio;
         }
 
+        // 画像の開始位置を中央に調整
+        const startX = (canvasWidth - drawWidth) / 2;
+        const startY = (canvasHeight - drawHeight) / 2;
+
         return {
-            width: displayWidth,
-            height: displayHeight
+            image: {
+                width: drawWidth,
+                height: drawHeight,
+                x: startX,
+                y: startY
+            }
         };
     }
 
-    //２．キャンバス更新
-    updateCanvasDimensions(dimensions) {
-        // DrawingControllerのCanvas設定メソッドを利用
-        this.drawingController.displayDimensions = dimensions;
-        this.drawingController.initializeCanvasSettings();
-
-        // 描画キャンバスをクリア
+    prepareCanvas() {
+        // 画像キャンバスをクリア
         this.imageCtx.clearRect(0, 0, this.imageCanvas.width, this.imageCanvas.height);
+        // 描画キャンバスをクリア
         this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
     }
 
     //３．画像の描画
-    drawImage(img) {
+    drawImage(img, layout) {
+        // 画像を描画
         this.imageCtx.drawImage(
             img,
-            0,
-            0,
-            this.imageCanvas.width,
-            this.imageCanvas.height
+            layout.image.x,
+            layout.image.y,
+            layout.image.width,
+            layout.image.height
         );
     }
 
