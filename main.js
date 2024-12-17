@@ -1689,6 +1689,11 @@ class StorageController {
 
     handleKeyClick(event, key, replayController) {
         if (replayController) {
+            // 前回の描画をクリア
+            replayController.drawingController.handleClearCanvas();
+            // スライダーをリセット
+            replayController.slider.value = 0;
+            // 新しいデータを描画
             replayController.drawStoragePoints(key);
         } else {
             console.error('ReplayController is not defined');
