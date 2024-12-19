@@ -1228,10 +1228,11 @@ class ReplayController {
         this.isReplaying = false;
         this.storageData = [];
 
-        this.initializeSliderEvents();
+        this.initializeEventListeners();
     }
 
-    initializeSliderEvents() {
+    initializeEventListeners() {
+        // スライダーのイベントリスナー
         this.slider.oninput = () => {
             if (!this.isReplaying) {
                 this.drawPoints(parseInt(this.slider.value, 10));
@@ -1242,6 +1243,16 @@ class ReplayController {
             this.stopReplay();
             this.drawPoints(parseInt(this.slider.value, 10));
         };
+
+        // リプレイ
+        document.getElementById('replayDraw-start').addEventListener('click', () => {
+            replayController.startReplay();
+        });
+
+        // リプレイ停止
+        document.getElementById('replayDraw-stop').addEventListener('click', () => {
+            replayController.stopReplay();
+        });
     }
 
     drawStoragePoints = (deviceName) => {
@@ -2114,16 +2125,6 @@ window.modalController = new ModalController();
 // ローカルストレージデータ取得
 document.addEventListener('DOMContentLoaded', () => {
     storageController.displayLocalStorageKeys(replayController);
-});
-
-// リプレイ
-document.getElementById('replayDraw-start').addEventListener('click', () => {
-    replayController.startReplay();
-});
-
-// リプレイ停止
-document.getElementById('replayDraw-stop').addEventListener('click', () => {
-    replayController.stopReplay();
 });
 
 // 採点
