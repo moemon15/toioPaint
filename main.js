@@ -1257,14 +1257,14 @@ class ReplayController {
 
     drawStoragePoints = (deviceName) => {
         this.storageData = this.storageController.getData(deviceName);
-        console.log('Loaded replay data:', this.storageData);
+        // console.log('Loaded replay data:', this.storageData);
 
         if (!this.storageData || this.storageData.length === 0) {
             console.warn('No replay data available for device:', deviceName);
             return;
         }
 
-        console.log('Loading replay data:', this.storageData.length, 'points');
+        // console.log('Loading replay data:', this.storageData.length, 'points');
         this.updateSlider(this.storageData.length);
         this.drawPoints(parseInt(this.slider.value, 10));
     }
@@ -1304,11 +1304,6 @@ class ReplayController {
         this.isReplaying = false;
     }
 
-    replayDrawFinish = () => {
-        this.drawingController.drawCtx.closePath(); // 現在のパスを終了
-        this.x = null;
-        this.y = null;
-    }
 
     drawPoints = (index) => {
         this.drawingController.handleClearCanvas();
@@ -1355,6 +1350,12 @@ class ReplayController {
 
 
         ctx.stroke();
+    }
+
+    replayDrawFinish = () => {
+        this.drawingController.drawCtx.closePath(); // 現在のパスを終了
+        this.x = null;
+        this.y = null;
     }
 
 }
