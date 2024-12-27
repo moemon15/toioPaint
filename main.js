@@ -1871,51 +1871,94 @@ class ScoringSystem {
 
 class CanvasToToio {
     constructor(bluetoothController, storageController, responseTypes) {
+        // 依存オブジェクトの設定
         this.bluetoothController = bluetoothController;
         this.storageController = storageController;
         this.RESPONSE_TYPES = responseTypes;
+        // 内部状態の初期化
         this.storageData = {};
         this.MAX_TARGETS_PER_COMMAND = 2;
-    }
 
-    getStorageData(deviceName) {
-        this.storageData = this.storageController.getData(deviceName);
+        // 座標タイプの設定
+        this.config = {
+            coordinateType: 'sensor', // 'sensor' or 'center'
+        };
+
+        this.initializeEventListeners();
     }
 
     /*
-    {"deviceName":"toio Core Cube-j5L",
-    "deviceId":"MQGyWVihoNKpPjqOLEgPlg==",
-    "x":153,"y":184,
-    "angle":321,
-    "sensorX":143,
-    "sensorY":184,
-    "sensorAngle":321,
-    "isEndOfLine":false,
-    "color":"#4a4a4a",
-    "alpha":1,
-    "lineWidth":"30"},
+    ==============================
+    イベントと初期設定
+    ==============================
     */
+    initializeEventListeners() {
+        // toioリプレイ開始
+        document.getElementById('toio-replay-start').addEventListener('click', () => {
+            console.log('toioリプレイ開始ボタンがクリックされました');
+            canvasToToio.setCoordinateType('center');
+            canvasToToio.startReplay();
+        });
+    }
+
+    /*
+    ==============================
+    データ管理と座標処理
+    ==============================
+    */
+    getStorageData(deviceName) {
+        this.storageData = this.storageController.getData(deviceName);
+        console.log('Loaded data:', this.storageData);
+    }
+
+    // 座標の選択処理
+    selectCoordinates(position) {
+        console.log(position);
+        if (this.config.coordinateType === 'sensor') {
+            return {
+                x: position.sensorX,
+                y: position.sensorY,
+                angle: position.sensorAngle
+            };
+        } else {
+            return {
+                x: position.x,
+                y: position.y,
+                angle: position.angle
+            };
+        }
+    }
 
     defineTargets() {
         const targets = [];
 
-        for (let i = 0; i < this.storageData.length; i++) {
-            const sensorX = this.storageData[i].sensorX;
-            const sensorY = this.storageData[i].sensorY;
-            const sensorAngle = this.storageData[i].sensorAngle;
-            const isEndOfLine = this.storageData[i].isEndOfLine;
+        for (const data of this.storageData) {
+            if (!data.position) continue;
 
-            targets.push({
-                x: sensorX,
-                y: sensorY,
-                angle: sensorAngle,
-                isEndOfLine: isEndOfLine
-            });
+            // 座標の選択
+            const coords = this.selectCoordinates(data.position);
+            const isEndOfLine = data.metadata?.isEndOfLine || false;
+
+            // 座標が有効な場合のみ追加
+            if (coords.x != null && coords.y != null && coords.angle != null) {
+                targets.push({
+                    x: coords.x,
+                    y: coords.y,
+                    angle: coords.angle,
+                    isEndOfLine: isEndOfLine
+                });
+            }
         }
 
+        console.log(`Generated ${targets.length} targets using ${this.config.coordinateType} coordinates`);
         return targets;
     }
 
+    /*
+    ==============================
+    toioコマンド生成と送信
+    ==============================
+    */
     splitTargets(targets) {
         const chunks = [];
         for (let i = 0; i < targets.length; i += this.MAX_TARGETS_PER_COMMAND) {
@@ -1940,6 +1983,7 @@ class CanvasToToio {
         dataView.setUint8(6, 0x00);  // Reserved
         dataView.setUint8(7, isLast ? 0x00 : 0x01);  // 書き込み操作の追加設定
 
+        // ターゲット座標の設定
         targets.forEach((target, index) => {
             const baseIndex = 8 + (index * 6);
             dataView.setUint16(baseIndex, target.x, true);
@@ -1963,36 +2007,10 @@ class CanvasToToio {
         }
     }
 
-    // async receiveResponse() {
-    //     try {
-    //         // const response = await this.bluetoothController.motorCharacteristicResponse([this.RESPONSE_TYPES.MULTIPLE_TARGET_MOTOR_CONTROL]);
-    //         const response = await this.bluetoothController.motorCharacteristicResponse('0x84');
-    //         const decodeResponseType = {
-    //             controlType: '0x' + response.controlType.toString(16).padStart(2, '0'),
-    //             controlId: '0x' + response.controlId.toString(16).padStart(2, '0'),
-    //             responseContent: '0x' + response.responseContent.toString(16).padStart(2, '0')
-    //         }
-
-    //         console.log(decodeResponseType);
-
-    //         this.handleMotorResponse(decodeResponseType.responseContent);
-    //         console.log('モーター制御応答:', decodeResponseType);
-
-    //         //　レスポンスデータが正常かどうか確認
-    //         if (response.responseContent !== 0x00) {
-    //             throw new Error(`Abnormal response: ${response.responseContent}`);
-    //         }
-
-    //         return response;
-    //     } catch (error) {
-    //         console.error('モーター制御応答の受信中にエラーが発生しました:', error);
-    //         throw error;
-    //     }
-    // }
-
     async receiveResponse() {
         try {
-            const response = await this.bluetoothController.motorCharacteristicResponse([BluetoothController.RESPONSE_TYPES.MULTIPLE_TARGET_MOTOR_CONTROL]);
+            const response = await this.bluetoothController.motorCharacteristicResponse([this.RESPONSE_TYPES.MULTIPLE_TARGET_MOTOR_CONTROL]);
+
             const decodeResponseType = {
                 controlType: '0x' + response.controlType.toString(16).padStart(2, '0'),
                 controlId: '0x' + response.controlId.toString(16).padStart(2, '0'),
@@ -2014,6 +2032,11 @@ class CanvasToToio {
         }
     }
 
+    /*
+   ==============================
+   実行処理
+   ==============================
+   */
     startReplay = () => {
         this.moveToMultipleTargets();
     }
@@ -2037,6 +2060,21 @@ class CanvasToToio {
                 break;
             }
         }
+    }
+
+
+    // 座標タイプの設定メソッド
+    setCoordinateType(type) {
+        if (type !== 'sensor' && type !== 'center') {
+            throw new Error('Invalid coordinate type. Use "sensor" or "center".');
+        }
+        this.config.coordinateType = type;
+        console.log(`Coordinate type set to: ${type}`);
+    }
+
+    // 座標タイプの取得メソッド
+    getCoordinateType() {
+        return this.config.coordinateType;
     }
 
     // toioの応答
@@ -2135,11 +2173,5 @@ document.getElementById('calculate-similarity').addEventListener('click', () => 
     // 許容範囲
     const tolerance = 100;
     scoringSystem.computeSimilarity(targetColor, tolerance);
-});
-
-// toioリプレイ開始
-document.getElementById('toio-replay-start').addEventListener('click', () => {
-    console.log('toioリプレイ開始ボタンがクリックされました');
-    canvasToToio.startReplay();
 });
 
