@@ -146,53 +146,37 @@ class BluetoothController {
     async sendToioCommand(command, characteristicType) {
 
         if (this.devices.size > 0) {
-            for (const [deviceId, deviceInfo] of this.devices.entries()) {
-                console.log("Device ID:", deviceId); // デバイスIDをログに出力
-                console.log("Device Info:", deviceInfo); // deviceInfoの内容をログに出力
-
-                if (deviceInfo.characteristics && deviceInfo.characteristics[characteristicType]) {
-                    console.log("Writing command to motor...");
-                    await deviceInfo.characteristics[characteristicType].writeValue(command);
-                } else {
-                    console.log(`デバイスID:${deviceId}の${characteristicType} characteristicが見つかりません`);
-                }
+            if (this.devices.size === 0) {
+                throw new Error('デバイスが接続されていません');
             }
-        } else {
-            console.log('デバイスが接続されていません');
+
+            const deviceInfo = this.getConnectedDevice();
+            if (!deviceInfo?.characteristics?.[characteristicType]) {
+                throw new Error(`${characteristicType} characteristicが見つかりません`);
+            }
+
+            try {
+                /*
+                for (const [deviceId, deviceInfo] of this.devices.entries()) {
+                    console.log("Device ID:", deviceId); // デバイスIDをログに出力
+                    console.log("Device Info:", deviceInfo); // deviceInfoの内容をログに出力
+
+                    if (deviceInfo.characteristics && deviceInfo.characteristics[characteristicType]) {
+                        console.log("Writing command to motor...");
+                        await deviceInfo.characteristics[characteristicType].writeValue(command);
+                    }
+                }
+                */
+
+                console.log("Writing command to motor...");
+                await deviceInfo.characteristics[characteristicType].writeValue(command);
+            } catch (error) {
+                console.log('Argh! Error writing command to motor:', error);
+                throw error;
+            }
+
         }
     }
-
-    // async motorCharacteristicResponse(expectedResponseTypes) {
-    //     const deviceInfo = this.getConnectedDevice();
-    //     if (!deviceInfo) {
-    //         throw new Error('No connected device found');
-    //     }
-
-    //     return new Promise((resolve, reject) => {
-    //         const onCharacteristicValueChanged = (event) => {
-    //             const value = event.target.value;
-    //             const responseData = new Uint8Array(value.buffer);
-
-    //             // レスポンスデータの中に、指定したデータが先頭に含まれているかどうか
-    //             if (expectedResponseTypes.includes(responseData[0])) {
-    //                 deviceInfo.characteristics.motor.removeEventListener('characteristicvaluechanged', onCharacteristicValueChanged);
-    //                 resolve({
-    //                     controlType: responseData[0],
-    //                     controlId: responseData[1],
-    //                     responseContent: responseData[2]
-    //                 });
-    //             }
-    //         };
-
-    //         deviceInfo.characteristics.motor.addEventListener('characteristicvaluechanged', onCharacteristicValueChanged);
-
-    //         // タイムアウト処理
-    //         setTimeout(() => {
-    //             deviceInfo.characteristics.motor.removeEventListener('characteristicvaluechanged', onCharacteristicValueChanged);
-    //             reject(new Error('Response timeout'));
-    //         }, 5000);  // 5秒のタイムアウト
-    //     });
-    // }
 
     async motorCharacteristicResponse(expectedResponseTypes) {
         return new Promise((resolve, reject) => {
@@ -1994,16 +1978,11 @@ class CanvasToToio {
     }
 
     async writeToToio(command) {
-        const deviceInfo = this.bluetoothController.getConnectedDevice();
-        if (!deviceInfo) {
-            throw new Error('デバイスが見つかりません');
-        }
-
         try {
-            await deviceInfo.characteristics.motor.writeValue(command);
-            console.log("コマンドの送信に成功");
+            await this.bluetoothController.sendToioCommand(command, 'motor');
         } catch (error) {
             console.error('Error sending motor command:', error);
+            throw error;
         }
     }
 
