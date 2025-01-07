@@ -1838,18 +1838,28 @@ class ScoringSystem {
         // マーキング部分をキャンバスに描画
         this.drawCtx.putImageData(userData, 0, 0);
         const similarity = (matchCount / userDrawnPixelCount) * 100;
-        console.log(`モデルピクセルトータル：${modelColorCount} `);
-        console.log(`ユーザーピクセルトータル：${userDrawnPixelCount} `);
-        console.log(`一致数：${matchCount} `);
-        return similarity.toFixed(2);
+
+        return {
+            similarity: similarity.toFixed(2),
+            modelColorCount,
+            userDrawnPixelCount,
+            matchCount
+        };
     }
 
     computeSimilarity(targetColor, tolerance) {
         const userImageData = this.drawCtx.getImageData(0, 0, this.drawCanvas.width, this.drawCanvas.height);
         const modelImageData = this.imageCtx.getImageData(0, 0, this.imageCanvas.width, this.imageCanvas.height);
-        const similarity = this.calculateSimilarity(userImageData, modelImageData, targetColor, tolerance);
-        console.log(`一致度: ${similarity}% `);
-        alert(`あなたの点数は${similarity}点です`);
+        const result = this.calculateSimilarity(userImageData, modelImageData, targetColor, tolerance);
+
+
+        // スコアリング結果をモーダルで表示
+        window.modalController.show('SCORING', {
+            similarity: result.similarity,
+            modelCount: result.modelColorCount,
+            userCount: result.userDrawnPixelCount,
+            matchCount: result.matchCount
+        });
     }
 }
 
@@ -2098,12 +2108,81 @@ class ModalController {
         // エラーメッセージの定義
         this.messages = {
             CONNECTION: 'デバイスが接続されていません。先にデバイスを接続してください。',
-            DISCONNECTION: 'デバイスが接続されていないため、切断できません。'
+            DISCONNECTION: 'デバイスが接続されていないため、切断できません。',
+            SCORING: {
+                title: '採点結果',
+                template: (data) => `
+                    <div class="score-result">
+                        <h4 class="text-center mb-4">スコア: ${data.similarity}点</h4>
+                        <div class="score-details">
+                            <p>モデルピクセル数: ${data.modelCount}</p>
+                            <p>描画ピクセル数: ${data.userCount}</p>
+                            <p>一致ピクセル数: ${data.matchCount}</p>
+                        </div>
+                        <div class="color-guide mt-3">
+                            <p><span class="color-box" style="background-color: blue;"></span> 一致している箇所</p>
+                            <p><span class="color-box" style="background-color: red;"></span> 一致していない箇所</p>
+                        </div>
+                    </div>
+                `
+            }
         };
+
+        this.addModalStyles();
     }
 
-    show(type = 'CONNECTION') {
-        this.modalMessage.textContent = this.messages[type];
+    // モーダル用のスタイルを追加
+    addModalStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .score-result {
+                padding: 1rem;
+            }
+            .score-details {
+                background-color: #f8f9fa;
+                padding: 1rem;
+                border-radius: 5px;
+                margin: 1rem 0;
+            }
+            .color-guide {
+                border-top: 1px solid #dee2e6;
+                padding-top: 1rem;
+            }
+            .color-box {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                margin-right: 10px;
+                vertical-align: middle;
+                border-radius: 3px;
+            }
+            .score-details p {
+                margin-bottom: 0.5rem;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    show(type = 'CONNECTION', data = null) {
+        switch (type) {
+            case 'SCORING':
+                this.modalTitle.textContent = this.messages.SCORING.title;
+                this.modalMessage.innerHTML = this.messages.SCORING.template(data);
+                break;
+
+            case 'CONNECTION':
+            case 'DISCONNECTION':
+                this.modalTitle.textContent = 'エラー';
+                this.modalMessage.textContent = this.messages[type];
+                break;
+
+            default:
+                console.warn('Unknown modal type:', type);
+                this.modalTitle.textContent = 'エラー';
+                this.modalMessage.textContent = '予期せぬエラーが発生しました';
+                break;
+        }
+
         this.modal.show();
     }
 
@@ -2117,19 +2196,20 @@ class ModalController {
 インスタンス
 ==============================
 */
+const modalController = new ModalController();
 const bluetoothController = new BluetoothController();
 const storageController = new StorageController();
 const positionController = new PositionController(bluetoothController, storageController);
 const drawingController = new DrawingController(DEFAULT_CONFIG, storageController, positionController);
 const imageController = new ImageController(drawingController);
+const scoringSystem = new ScoringSystem();
+window.modalController = modalController;
 
 document.addEventListener('DOMContentLoaded', () => {
     replayController = new ReplayController(drawingController, storageController);
     canvasToToio = new CanvasToToio(bluetoothController, storageController, BluetoothController.RESPONSE_TYPES);
     storageController.displayLocalStorageKeys(replayController, canvasToToio);
 });
-const scoringSystem = new ScoringSystem();
-window.modalController = new ModalController();
 
 
 
