@@ -573,6 +573,12 @@ class DrawingController {
         sizeSlider.value = this.state.penSettings.lineWidth;
         document.getElementById('alpha').textContent = this.state.penSettings.alpha;
         alphaSlider.value = this.state.penSettings.alpha;
+        colorPicker.value = this.state.penSettings.color;
+
+        // 描画コンテキストの初期スタイルを設定
+        this.drawCtx.strokeStyle = this.state.penSettings.color;
+        this.drawCtx.lineWidth = this.state.penSettings.lineWidth;
+        this.drawCtx.globalAlpha = this.state.penSettings.alpha;
 
         // スライダーの変更イベント
         sizeSlider.addEventListener('input', (event) => {
@@ -922,9 +928,9 @@ class DrawingState {
 
         // ペンの設定状態
         this.penSettings = {
-            color: '#000000',
+            color: '#0062FF',
             alpha: 1,
-            lineWidth: 3,
+            lineWidth: 45,
             mode: 'pen'
         };
 
@@ -1722,49 +1728,40 @@ class ScoringSystem {
         this.imageCtx = this.imageCanvas.getContext('2d');
         this.drawCtx = this.drawCanvas.getContext('2d');
 
+
+        // 採点パラメータの設定
+        this.targetColor = { r: 74, g: 74, b: 74 }; // 一致判定の基準となる色
+        this.tolerance = 100; // 色の許容範囲
+
+        // イベントリスナーの初期化
+        this.initializeEventListeners();
+
     }
 
-    /*
-    calculateSimilarity(userData, modelImageData, targetColor, tolerance) {
-        let matchCount = 0;
-        let modelColorCount = 0;
-        let userDrawnPixelCount = 0;
+    initializeEventListeners() {
+        const calculateButton = document.getElementById('calculate-similarity');
+        if (calculateButton) {
+            calculateButton.addEventListener('click', () => {
+                this.computeSimilarity(this.targetColor, this.tolerance);
+            });
+        }
+    }
 
-        for (let i = 0; i < modelImageData.data.length; i += 4) {
-            const userR = userData.data[i];
-            const userG = userData.data[i + 1];
-            const userB = userData.data[i + 2];
-            const modelR = modelImageData.data[i];
-            const modelG = modelImageData.data[i + 1];
-            const modelB = modelImageData.data[i + 2];
-
-            if (Math.abs(modelR - targetColor.r) <= tolerance &&
-                Math.abs(modelG - targetColor.g) <= tolerance &&
-                Math.abs(modelB - targetColor.b) <= tolerance) {
-                if (Math.abs(userR - modelR) <= tolerance &&
-                    Math.abs(userG - modelG) <= tolerance &&
-                    Math.abs(userB - modelB) <= tolerance) {
-                    matchCount++;
-                    // 一致している箇所を青でマーキング
-                    userData.data[i] = 0;     // R
-                    userData.data[i + 1] = 0;   // G
-                    userData.data[i + 2] = 255;   // B
-                    userData.data[i + 3] = 255; // A
-                } else {
-                    // 一致していない箇所を赤でマーキング
-                    userData.data[i] = 255;     // R
-                    userData.data[i + 1] = 0;   // G
-                    userData.data[i + 2] = 0;   // B
-                    userData.data[i + 3] = 255; // A
-                }
+    // ユーザーの描画色を正規化
+    normalizeUserColors(userData, targetColor) {
+        // ユーザーが描画した部分のみ色を変更
+        for (let i = 0; i < userData.data.length; i += 4) {
+            const alpha = userData.data[i + 3];
+            if (alpha !== 0) {
+                // ユーザーの描画部分を targetColor の色に変更
+                userData.data[i] = targetColor.r;     // R
+                userData.data[i + 1] = targetColor.g; // G
+                userData.data[i + 2] = targetColor.b; // B
+                // アルファ値は維持
             }
         }
-
-        this.drawCtx.putImageData(userData, 0, 0); // マーキングされたイメージをキャンバスに描画
-        const similarity = (matchCount / totalCount) * 100;
-        return similarity.toFixed(2);
+        return userData;
     }
-    */
 
 
     // ユークリッド距離
@@ -1772,6 +1769,9 @@ class ScoringSystem {
         let matchCount = 0;
         let modelColorCount = 0;
         let userDrawnPixelCount = 0;
+
+        // ユーザーの描画色を正規化
+        userData = this.normalizeUserColors(userData, targetColor);
 
         // ユーザーが描画したピクセル数をカウント
         /*
@@ -2142,14 +2142,5 @@ window.modalController = new ModalController();
 // ローカルストレージデータ取得
 document.addEventListener('DOMContentLoaded', () => {
     storageController.displayLocalStorageKeys(replayController);
-});
-
-// 採点
-document.getElementById('calculate-similarity').addEventListener('click', () => {
-    // 一致と判定するモデルの色
-    const targetColor = { r: 74, g: 74, b: 74 };
-    // 許容範囲
-    const tolerance = 100;
-    scoringSystem.computeSimilarity(targetColor, tolerance);
 });
 
