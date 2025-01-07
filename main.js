@@ -1886,31 +1886,44 @@ class CanvasToToio {
     }
 
     /*
+  ==============================
+  実行処理
+  ==============================
+  */
+    startReplay = () => {
+        this.moveToMultipleTargets();
+    }
+
+    // メイン処理
+    async moveToMultipleTargets() {
+        const targets = this.defineTargets();
+        const chunks = this.splitTargets(targets);
+
+        // 分割したチャンクをループ(toioに繰り返し送信)
+        for (let i = 0; i < chunks.length; i = i + 20) {
+            const isLast = i === chunks.length - 1;
+            const encodedCommand = this.encodeTargetPoints(chunks[i], isLast);
+            console.log(encodedCommand);
+
+            try {
+                await this.writeToToio(encodedCommand);
+                await this.receiveResponse();
+            } catch (error) {
+                console.error("Error during movement:", error);
+                break;
+            }
+        }
+    }
+
+    /*
     ==============================
     データ管理と座標処理
     ==============================
     */
+    //StorageController.handleKeyClick()から呼び出される
     getStorageData(deviceName) {
         this.storageData = this.storageController.getData(deviceName);
         console.log('Loaded data:', this.storageData);
-    }
-
-    // 座標の選択処理
-    selectCoordinates(position) {
-        console.log(position);
-        if (this.config.coordinateType === 'sensor') {
-            return {
-                x: position.sensorX,
-                y: position.sensorY,
-                angle: position.sensorAngle
-            };
-        } else {
-            return {
-                x: position.x,
-                y: position.y,
-                angle: position.angle
-            };
-        }
     }
 
     defineTargets() {
@@ -1938,9 +1951,27 @@ class CanvasToToio {
         return targets;
     }
 
+    // 座標の選択処理
+    selectCoordinates(position) {
+        console.log(position);
+        if (this.config.coordinateType === 'sensor') {
+            return {
+                x: position.sensorX,
+                y: position.sensorY,
+                angle: position.sensorAngle
+            };
+        } else {
+            return {
+                x: position.x,
+                y: position.y,
+                angle: position.angle
+            };
+        }
+    }
+
     /*
     ==============================
-    toioコマンド生成と送信
+    座標データの分割
     ==============================
     */
     splitTargets(targets) {
@@ -2010,37 +2041,6 @@ class CanvasToToio {
             throw error;
         }
     }
-
-    /*
-   ==============================
-   実行処理
-   ==============================
-   */
-    startReplay = () => {
-        this.moveToMultipleTargets();
-    }
-
-    // メイン処理
-    async moveToMultipleTargets() {
-        const targets = this.defineTargets();
-        const chunks = this.splitTargets(targets);
-
-        // 分割したチャンクをループ(toioに繰り返し送信)
-        for (let i = 0; i < chunks.length; i = i + 20) {
-            const isLast = i === chunks.length - 1;
-            const encodedCommand = this.encodeTargetPoints(chunks[i], isLast);
-            console.log(encodedCommand);
-
-            try {
-                await this.writeToToio(encodedCommand);
-                await this.receiveResponse();
-            } catch (error) {
-                console.error("Error during movement:", error);
-                break;
-            }
-        }
-    }
-
 
     // 座標タイプの設定メソッド
     setCoordinateType(type) {
@@ -2123,7 +2123,6 @@ const positionController = new PositionController(bluetoothController, storageCo
 const drawingController = new DrawingController(DEFAULT_CONFIG, storageController, positionController);
 const imageController = new ImageController(drawingController);
 
-// const canvasToToio = new CanvasToToio(bluetoothController, storageController);
 document.addEventListener('DOMContentLoaded', () => {
     replayController = new ReplayController(drawingController, storageController);
     canvasToToio = new CanvasToToio(bluetoothController, storageController, BluetoothController.RESPONSE_TYPES);
