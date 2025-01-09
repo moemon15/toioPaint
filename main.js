@@ -1350,39 +1350,6 @@ class ReplayController {
 
 }
 
-/**
- * ストレージのデータ構造を定義するスキーマ
- */
-const STORAGE_SCHEMA = {
-    // 位置情報
-    position: {
-        enabled: true,
-        required: true,
-        properties: ['x', 'y', 'angle', 'sensorX', 'sensorY', 'sensorAngle']
-    },
-
-    // ペン設定
-    penSettings: {
-        enabled: true,
-        required: true,
-        properties: ['mode', 'color', 'alpha', 'lineWidth']
-    },
-
-    // デバイス情報
-    deviceInfo: {
-        enabled: true,
-        required: true,
-        properties: ['deviceName', 'deviceId']
-    },
-
-    // メタデータ
-    metadata: {
-        enabled: true,
-        required: true,
-        properties: ['timestamp', 'sessionId', 'isEndOfLine', 'isClearedCanvas']
-    }
-};
-
 class StorageController {
     constructor() {
         this.storage = localStorage;
