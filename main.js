@@ -1246,7 +1246,7 @@ class ReplayController {
     }
 
     drawStoragePoints = (deviceName) => {
-        this.storageData = this.storageController.getData(deviceName);
+        this.storageData = this.storageController.getStoredData(deviceName);
         // console.log('Loaded replay data:', this.storageData);
 
         if (!this.storageData || this.storageData.length === 0) {
@@ -1482,15 +1482,6 @@ class StorageController {
     }
 
     // =================== データアクセス ===================
-
-    /**
-     * データの取得（キャッシュ + ストレージ）
-     */
-    getData(deviceName) {
-        const cachedData = this.cache.get(deviceName) || [];
-        const storedData = this.getStoredData(deviceName);
-        return [...storedData, ...cachedData];
-    }
 
     /**
      * ストレージからのデータ取得
@@ -1899,7 +1890,7 @@ class CanvasToToio {
     */
     //StorageController.handleKeyClick()から呼び出される
     getStorageData(deviceName) {
-        this.storageData = this.storageController.getData(deviceName);
+        this.storageData = this.storageController.getStoredData(deviceName);
         console.log('Loaded data:', this.storageData);
     }
 
