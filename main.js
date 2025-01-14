@@ -1807,28 +1807,12 @@ class ScoringSystem {
                 // モデルの色が基準色に近い場合（描くべき領域）
                 if (modelDistance <= tolerance) {
                     modelColorCount++;
+                    matchCount++;
 
-                    const userColor = {
-                        r: userData.data[i],
-                        g: userData.data[i + 1],
-                        b: userData.data[i + 2]
-                    };
-
-                    const userDistance = this.calculateColorDistance(userColor, modelColor);
-
-                    if (userDistance <= tolerance) {
-                        matchCount++;
-                        // 一致箇所を青でマーク
-                        userData.data[i] = 0;
-                        userData.data[i + 1] = 0;
-                        userData.data[i + 2] = 255;
-                    } else {
-                        notMatchCount++;
-                        // 不一致箇所を赤でマーク（描くべき場所に描かれていない）
-                        userData.data[i] = 255;
-                        userData.data[i + 1] = 0;
-                        userData.data[i + 2] = 0;
-                    }
+                    // 一致箇所を青でマーク
+                    userData.data[i] = 0;
+                    userData.data[i + 1] = 0;
+                    userData.data[i + 2] = 255;
                 } else {
                     // モデルの色が基準色と異なる場所（描くべきでない領域）に描画されている
                     notMatchCount++;
@@ -1846,7 +1830,7 @@ class ScoringSystem {
         this.drawCtx.putImageData(userData, 0, 0);
 
         const similarity = (matchCount / userDrawnPixelCount) * 100;
-        console.log(matchCount, userDrawnPixelCount, modelColorCount, notMatchCount, similarity);
+        
         return {
             similarity: similarity.toFixed(2),
             modelColorCount,
