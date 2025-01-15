@@ -1795,42 +1795,40 @@ class ScoringSystem {
 
         // 描画ピクセルのみを評価
         for (const i of drawnPixels) {
-            if (i < modelImageData.data.length) {
-                const modelColor = {
-                    r: modelImageData.data[i],
-                    g: modelImageData.data[i + 1],
-                    b: modelImageData.data[i + 2]
-                };
+            const modelColor = {
+                r: modelImageData.data[i],
+                g: modelImageData.data[i + 1],
+                b: modelImageData.data[i + 2]
+            };
 
-                const modelDistance = this.calculateColorDistance(modelColor, targetColor);
+            const modelDistance = this.calculateColorDistance(modelColor, targetColor);
 
-                // モデルの色が基準色に近い場合（描くべき領域）
-                if (modelDistance <= tolerance) {
-                    modelColorCount++;
-                    matchCount++;
+            // モデルの色が基準色に近い場合（描くべき領域）
+            if (modelDistance <= tolerance) {
+                modelColorCount++;
+                matchCount++;
 
-                    // 一致箇所を青でマーク
-                    userData.data[i] = 0;
-                    userData.data[i + 1] = 0;
-                    userData.data[i + 2] = 255;
-                } else {
-                    // モデルの色が基準色と異なる場所（描くべきでない領域）に描画されている
-                    notMatchCount++;
-                    // 不一致箇所を赤でマーク
-                    userData.data[i] = 255;
-                    userData.data[i + 1] = 0;
-                    userData.data[i + 2] = 0;
-                }
-
-                userData.data[i + 3] = 255; // 完全な不透明度
+                // 一致箇所を青でマーク
+                userData.data[i] = 0;
+                userData.data[i + 1] = 0;
+                userData.data[i + 2] = 255;
+            } else {
+                // モデルの色が基準色と異なる場所（描くべきでない領域）に描画されている
+                notMatchCount++;
+                // 不一致箇所を赤でマーク
+                userData.data[i] = 255;
+                userData.data[i + 1] = 0;
+                userData.data[i + 2] = 0;
             }
+
+            userData.data[i + 3] = 255; // 完全な不透明度
         }
 
         // マーキングしたデータを描画
         this.drawCtx.putImageData(userData, 0, 0);
 
         const similarity = (matchCount / userDrawnPixelCount) * 100;
-        
+
         return {
             similarity: similarity.toFixed(2),
             modelColorCount,
